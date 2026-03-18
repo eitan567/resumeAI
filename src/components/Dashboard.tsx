@@ -461,7 +461,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile }) => {
       {/* Document Modal */}
       {selectedDoc && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-3xl shadow-2xl max-w-3xl w-full max-h-[90vh] flex flex-col">
+          <div className={`bg-white rounded-3xl shadow-2xl ${isEditing ? 'max-w-7xl' : 'max-w-5xl'} w-full max-h-[90vh] flex flex-col transition-all duration-300`}>
             <div className="p-4 sm:p-6 border-b border-slate-100 flex justify-between items-center">
               <h3 className="text-lg font-bold text-slate-900">
                 {selectedDoc.type === 'resume' ? 'קורות חיים' : 'מכתב מקדים'}
@@ -552,22 +552,29 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile }) => {
                 </div>
               )}
               {isEditing ? (
-                <div className="flex flex-col lg:flex-row gap-4 h-full min-h-[50vh]">
+                <div className="flex flex-col lg:flex-row gap-6 h-full min-h-[60vh]">
                   <div className="flex-1 flex flex-col">
-                    <label className="text-sm font-bold text-slate-700 mb-2 text-right">עריכת Markdown</label>
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-xs text-slate-400 font-mono">Markdown Editor</span>
+                      <label className="text-sm font-bold text-slate-700 text-right">עריכת תוכן</label>
+                    </div>
                     <textarea
                       value={editedContent}
                       onChange={(e) => setEditedContent(e.target.value)}
-                      className="flex-1 p-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none resize-none font-mono text-sm text-left"
-                      dir="ltr"
+                      className="flex-1 p-6 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none resize-none font-mono text-sm text-right bg-slate-50/50"
+                      dir="rtl"
+                      placeholder="הזן תוכן בפורמט Markdown..."
                     />
                   </div>
                   <div className="flex-1 flex flex-col">
-                    <label className="text-sm font-bold text-slate-700 mb-2 text-right">תצוגה מקדימה</label>
-                    <div className="flex-1 p-4 border border-slate-200 rounded-xl overflow-y-auto bg-slate-50">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-xs text-slate-400 font-mono">Live Preview</span>
+                      <label className="text-sm font-bold text-slate-700 text-right">תצוגה מקדימה</label>
+                    </div>
+                    <div className="flex-1 p-8 border border-slate-200 rounded-2xl overflow-y-auto bg-slate-100/50 shadow-inner">
                       <div 
                         ref={modalContentRef}
-                        className={`prose prose-sm max-w-none text-right ${getTemplateStyles(selectedDoc.template)}`} 
+                        className={`prose max-w-none text-right bg-white p-8 sm:p-12 shadow-lg rounded-sm min-h-full ${getTemplateStyles(selectedDoc.template)}`} 
                         dir="rtl"
                       >
                         <ReactMarkdown>{editedContent}</ReactMarkdown>
@@ -576,12 +583,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile }) => {
                   </div>
                 </div>
               ) : (
-                <div 
-                  ref={modalContentRef}
-                  className={`prose prose-sm max-w-none text-right ${getTemplateStyles(selectedDoc.template)}`} 
-                  dir="rtl"
-                >
-                  <ReactMarkdown>{selectedDoc.content}</ReactMarkdown>
+                <div className="bg-slate-100/50 p-4 sm:p-10 rounded-2xl shadow-inner">
+                  <div 
+                    ref={modalContentRef}
+                    className={`prose max-w-none text-right bg-white p-8 sm:p-16 shadow-xl rounded-sm mx-auto ${getTemplateStyles(selectedDoc.template)}`} 
+                    dir="rtl"
+                    style={{ maxWidth: '800px' }}
+                  >
+                    <ReactMarkdown>{selectedDoc.content}</ReactMarkdown>
+                  </div>
                 </div>
               )}
             </div>

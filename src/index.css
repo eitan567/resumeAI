@@ -22,7 +22,28 @@ button, a, [role="button"], [role="tab"], .cursor-pointer, input[type="submit"],
   cursor: pointer;
 }
 
-/* Custom Scrollbar Styles */
+/* Prose RTL Support */
+.prose[dir="rtl"] {
+  text-align: right;
+}
+.prose[dir="rtl"] ul, .prose[dir="rtl"] ol {
+  padding-right: 1.625em;
+  padding-left: 0;
+}
+.prose[dir="rtl"] li {
+  padding-right: 0.375em;
+  padding-left: 0;
+}
+.prose[dir="rtl"] blockquote {
+  border-right-width: 0.25rem;
+  border-left-width: 0;
+  padding-right: 1em;
+  padding-left: 0;
+}
+.prose[dir="rtl"] ul > li::before {
+  right: 0.25em;
+  left: auto;
+}
 .custom-scrollbar {
   scrollbar-width: thin;
   scrollbar-color: rgba(148, 163, 184, 0.4) transparent;
