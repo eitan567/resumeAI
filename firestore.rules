@@ -88,10 +88,10 @@ service cloud.firestore {
              (!('id' in data) || (data.id is string && data.id.size() > 0 && data.id.size() < 100)) &&
              (!('userId' in data) || (data.userId is string && data.userId.size() > 0 && data.userId.size() < 100)) &&
              (!('type' in data) || data.type in ['resume', 'cover_letter']) &&
-             (!('content' in data) || (data.content is string && data.content.size() > 0 && data.content.size() < 50000)) &&
+             (!('content' in data) || (data.content is string && data.content.size() > 0 && data.content.size() < 100000)) &&
              (!('createdAt' in data) || (data.createdAt is string || data.createdAt is timestamp)) &&
              (!('template' in data) || (data.template is string && data.template.size() < 50)) &&
-             (!('photoUrl' in data) || (data.photoUrl is string && data.photoUrl.size() < 2000)) &&
+             (!('photoUrl' in data) || (data.photoUrl is string && data.photoUrl.size() < 2000000)) &&
              (!('slug' in data) || (data.slug is string && data.slug.size() < 100)) &&
              (!('isPublic' in data) || data.isPublic is bool) &&
              (!('includePersonalLink' in data) || data.includePersonalLink is bool);

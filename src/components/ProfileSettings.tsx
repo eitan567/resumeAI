@@ -9,14 +9,21 @@ interface ProfileSettingsProps {
 }
 
 export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ userProfile }) => {
-  const [username, setUsername] = useState(userProfile.username || '');
+  const defaultSlug = (userProfile.name || 'user')
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9-]/g, '');
+
+  const [username, setUsername] = useState(userProfile.username || defaultSlug);
   const [newPhotoUrl, setNewPhotoUrl] = useState('');
   const [isSavingUsername, setIsSavingUsername] = useState(false);
   const [isAddingPhoto, setIsAddingPhoto] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const handleSaveUsername = async () => {
-    const cleanUsername = username.toLowerCase().trim().replace(/[^a-z0-9-]/g, '');
+    const cleanUsername = username.toLowerCase().trim().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
     
     if (cleanUsername.length < 3) {
       setMessage({ type: 'error', text: 'שם המשתמש חייב להכיל לפחות 3 תווים.' });
@@ -59,13 +66,14 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ userProfile })
     }
   };
 
-  const handleAddPhoto = async () => {
-    if (!newPhotoUrl) return;
+  const handleAddPhoto = async (url?: string) => {
+    const photoToAdd = url || newPhotoUrl;
+    if (!photoToAdd) return;
     setIsAddingPhoto(true);
     setMessage(null);
     try {
       await updateDoc(doc(db, 'users', userProfile.uid), {
-        photos: arrayUnion(newPhotoUrl)
+        photos: arrayUnion(photoToAdd)
       });
       setNewPhotoUrl('');
       setMessage({ type: 'success', text: 'התמונה נוספה בהצלחה!' });
@@ -75,6 +83,24 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ userProfile })
     } finally {
       setIsAddingPhoto(false);
     }
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Check file size (limit to 1MB for base64 storage)
+    if (file.size > 1024 * 1024) {
+      setMessage({ type: 'error', text: 'הקובץ גדול מדי. הגודל המקסימלי הוא 1MB.' });
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64String = reader.result as string;
+      handleAddPhoto(base64String);
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleRemovePhoto = async (photoUrl: string) => {
@@ -171,20 +197,38 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ userProfile })
         <div className="space-y-6">
           <div className="flex flex-col sm:flex-row gap-3">
             <input
-              type="url"
-              value={newPhotoUrl}
-              onChange={(e) => setNewPhotoUrl(e.target.value)}
-              placeholder="הכנס לינק לתמונה (URL)"
-              className="flex-1 px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none"
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileChange}
+              accept="image/*"
+              className="hidden"
             />
             <button
-              onClick={handleAddPhoto}
-              disabled={isAddingPhoto || !newPhotoUrl}
-              className="bg-slate-900 hover:bg-slate-800 disabled:bg-slate-400 text-white px-6 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isAddingPhoto}
+              className="flex-1 px-4 py-3 rounded-xl border-2 border-dashed border-slate-200 hover:border-indigo-500 hover:bg-indigo-50 transition-all text-slate-500 flex items-center justify-center gap-2"
             >
-              {isAddingPhoto ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-              הוסף תמונה
+              <ImageIcon className="w-5 h-5" />
+              לחץ כאן להעלאת תמונה מהמחשב
             </button>
+            
+            <div className="flex gap-2 flex-1">
+              <input
+                type="url"
+                value={newPhotoUrl}
+                onChange={(e) => setNewPhotoUrl(e.target.value)}
+                placeholder="או הכנס לינק לתמונה (URL)"
+                className="flex-1 px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none"
+              />
+              <button
+                onClick={() => handleAddPhoto()}
+                disabled={isAddingPhoto || !newPhotoUrl}
+                className="bg-slate-900 hover:bg-slate-800 disabled:bg-slate-400 text-white px-6 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2"
+              >
+                {isAddingPhoto ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                הוסף
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">

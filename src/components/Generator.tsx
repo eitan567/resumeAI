@@ -88,6 +88,12 @@ export const Generator: React.FC<GeneratorProps> = ({ userProfile, onShowPricing
   
   const resultRef = useRef<HTMLDivElement>(null);
 
+  const defaultSlug = (userProfile.name || 'user')
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9-]/g, '');
+
   const handleEditClick = () => {
     setEditedContent(result || '');
     setIsEditing(true);
@@ -378,23 +384,24 @@ export const Generator: React.FC<GeneratorProps> = ({ userProfile, onShowPricing
               )}
             </div>
 
-            {userProfile.username && (
-              <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100 flex items-center justify-between gap-4">
-                <div className="flex-1">
-                  <h4 className="text-sm font-bold text-indigo-900 mb-1">הוספת לינק לדף האישי</h4>
-                  <p className="text-xs text-indigo-700">הוסף את הכתובת הקבועה שלך לקורות החיים: <span className="font-mono">{window.location.origin}/u/{userProfile.username}</span></p>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={includePersonalLink}
-                    onChange={(e) => setIncludePersonalLink(e.target.checked)}
-                    className="sr-only peer"
-                  />
-                  <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
-                </label>
+            <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100 flex items-center justify-between gap-4">
+              <div className="flex-1">
+                <h4 className="text-sm font-bold text-indigo-900 mb-1">כתובת אישית לקורות החיים (אופציונלי)</h4>
+                <p className="text-xs text-indigo-700">הוסף את הכתובת הקבועה שלך לקורות החיים: <span className="font-mono">{window.location.origin}/u/{userProfile.username || defaultSlug}</span></p>
+                {!userProfile.username && (
+                  <p className="text-[10px] text-indigo-500 mt-1">* שים לב: עליך לשמור את שם המשתמש בהגדרות הפרופיל כדי שהלינק יעבוד.</p>
+                )}
               </div>
-            )}
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={includePersonalLink}
+                  onChange={(e) => setIncludePersonalLink(e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+              </label>
+            </div>
           </div>
         )}
 

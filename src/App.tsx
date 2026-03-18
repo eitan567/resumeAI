@@ -30,10 +30,17 @@ export default function App() {
             setLoading(false);
           } else {
             // Create new user profile
+            const defaultUsername = (currentUser.displayName || 'user')
+              .toLowerCase()
+              .trim()
+              .replace(/\s+/g, '-')
+              .replace(/[^a-z0-9-]/g, '');
+
             const newUser: UserProfile = {
               uid: currentUser.uid,
               email: currentUser.email || 'no-email@example.com',
               name: currentUser.displayName || 'משתמש',
+              username: defaultUsername,
               plan: 'free',
               credits: 3,
               createdAt: new Date().toISOString()
