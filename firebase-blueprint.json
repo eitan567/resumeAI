@@ -10,7 +10,9 @@
         "name": { "type": "string", "description": "The user's display name" },
         "plan": { "type": "string", "enum": ["free", "pro"], "description": "The user's subscription plan" },
         "credits": { "type": "number", "description": "Number of remaining generations for free users" },
-        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" }
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" },
+        "username": { "type": "string", "description": "Unique username for personal profile link" },
+        "photos": { "type": "array", "items": { "type": "string" }, "description": "List of profile photo URLs" }
       },
       "required": ["uid", "email", "name", "plan", "credits", "createdAt"]
     },
@@ -23,7 +25,12 @@
         "userId": { "type": "string", "description": "The ID of the user who owns this document" },
         "type": { "type": "string", "enum": ["resume", "cover_letter"], "description": "The type of document" },
         "content": { "type": "string", "description": "The generated markdown content" },
-        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" }
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" },
+        "template": { "type": "string", "description": "The template used for the document" },
+        "photoUrl": { "type": "string", "description": "Optional URL for a profile photo" },
+        "slug": { "type": "string", "description": "Optional unique slug for a public link" },
+        "isPublic": { "type": "boolean", "description": "Whether the document is publicly accessible" },
+        "includePersonalLink": { "type": "boolean", "description": "Whether to include the personal profile link in the resume" }
       },
       "required": ["id", "userId", "type", "content", "createdAt"]
     },

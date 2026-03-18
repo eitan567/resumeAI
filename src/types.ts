@@ -7,6 +7,8 @@ export interface UserProfile {
   createdAt: string;
   proExpiresAt?: string;
   reminderSent?: boolean;
+  username?: string;
+  photos?: string[];
 }
 
 export interface GeneratedDocument {
@@ -16,4 +18,8 @@ export interface GeneratedDocument {
   content: string;
   createdAt: string;
   template?: string;
+  photoUrl?: string;
+  slug?: string;
+  isPublic?: boolean;
+  includePersonalLink?: boolean;
 }

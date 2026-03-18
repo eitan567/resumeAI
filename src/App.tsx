@@ -1,63 +1,15 @@
 import React, { useEffect, useState } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Auth } from './components/Auth';
 import { Dashboard } from './components/Dashboard';
-import { auth, db } from './firebase';
+import { PublicResume } from './components/PublicResume';
+import { PublicProfile } from './components/PublicProfile';
+import { auth, db, handleFirestoreError, OperationType } from './firebase';
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
+import { doc, setDoc, onSnapshot } from 'firebase/firestore';
 import { UserProfile } from './types';
 import { Loader2 } from 'lucide-react';
 import { SupportChat } from './components/SupportChat';
-
-enum OperationType {
-  CREATE = 'create',
-  UPDATE = 'update',
-  DELETE = 'delete',
-  LIST = 'list',
-  GET = 'get',
-  WRITE = 'write',
-}
-
-interface FirestoreErrorInfo {
-  error: string;
-  operationType: OperationType;
-  path: string | null;
-  authInfo: {
-    userId: string | undefined;
-    email: string | null | undefined;
-    emailVerified: boolean | undefined;
-    isAnonymous: boolean | undefined;
-    tenantId: string | null | undefined;
-    providerInfo: {
-      providerId: string;
-      displayName: string | null;
-      email: string | null;
-      photoUrl: string | null;
-    }[];
-  }
-}
-
-function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null, currentUid?: string) {
-  const errInfo: FirestoreErrorInfo = {
-    error: error instanceof Error ? error.message : String(error),
-    authInfo: {
-      userId: currentUid || auth.currentUser?.uid,
-      email: auth.currentUser?.email,
-      emailVerified: auth.currentUser?.emailVerified,
-      isAnonymous: auth.currentUser?.isAnonymous,
-      tenantId: auth.currentUser?.tenantId,
-      providerInfo: auth.currentUser?.providerData.map(provider => ({
-        providerId: provider.providerId,
-        displayName: provider.displayName,
-        email: provider.email,
-        photoUrl: provider.photoURL
-      })) || []
-    },
-    operationType,
-    path
-  };
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
-}
 
 export default function App() {
   const [user, setUser] = useState<any>(null);
@@ -118,13 +70,25 @@ export default function App() {
   }
 
   return (
-    <div className="h-full bg-slate-50 font-sans text-slate-900" dir="rtl">
-      {user && userProfile ? (
-        <Dashboard userProfile={userProfile} />
-      ) : (
-        <Auth />
-      )}
-      <SupportChat />
-    </div>
+    <Router>
+      <div className="h-full bg-slate-50 font-sans text-slate-900" dir="rtl">
+        <Routes>
+          <Route 
+            path="/" 
+            element={
+              user && userProfile ? (
+                <Dashboard userProfile={userProfile} />
+              ) : (
+                <Auth />
+              )
+            } 
+          />
+          <Route path="/r/:slug" element={<PublicResume />} />
+          <Route path="/u/:username" element={<PublicProfile />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+        <SupportChat />
+      </div>
+    </Router>
   );
 }

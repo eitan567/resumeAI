@@ -4,7 +4,8 @@ import { auth, db, logout } from '../firebase';
 import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, increment } from 'firebase/firestore';
 import { Generator } from './Generator';
 import { Pricing } from './Pricing';
-import { LogOut, Crown, FileText, Clock, Sparkles, Menu, X, Download, Loader2, Palette, ArrowUp } from 'lucide-react';
+import { ProfileSettings } from './ProfileSettings';
+import { LogOut, Crown, FileText, Clock, Sparkles, Menu, X, Download, Loader2, Palette, ArrowUp, Share2, User as UserIcon, Settings } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { rewriteDocument } from '../services/ai';
 
@@ -65,6 +66,7 @@ interface DashboardProps {
 
 export const Dashboard: React.FC<DashboardProps> = ({ userProfile }) => {
   const [documents, setDocuments] = useState<GeneratedDocument[]>([]);
+  const [activeTab, setActiveTab] = useState<'documents' | 'profile'>('documents');
   const [showPricing, setShowPricing] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState<GeneratedDocument | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -254,8 +256,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile }) => {
   useEffect(() => {
     const q = query(
       collection(db, 'documents'),
-      where('userId', '==', userProfile.uid),
-      orderBy('createdAt', 'desc')
+      where('userId', '==', userProfile.uid)
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -263,7 +264,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile }) => {
       snapshot.forEach((doc) => {
         docs.push(doc.data() as GeneratedDocument);
       });
-      setDocuments(docs);
+      // Sort in memory
+      setDocuments(docs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, 'documents');
     });
@@ -321,6 +323,23 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile }) => {
             <Sparkles className="w-6 h-6 text-indigo-600" />
             <h1 className="text-xl font-bold text-slate-900 hidden sm:block">קורות חיים AI</h1>
           </div>
+
+          <nav className="hidden md:flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
+            <button
+              onClick={() => setActiveTab('documents')}
+              className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'documents' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              <FileText className="w-4 h-4" />
+              מחולל ומסמכים
+            </button>
+            <button
+              onClick={() => setActiveTab('profile')}
+              className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'profile' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              <UserIcon className="w-4 h-4" />
+              פרופיל והגדרות
+            </button>
+          </nav>
           
           <div className="flex items-center gap-3 sm:gap-4">
             <div className="hidden sm:flex items-center gap-2 text-sm">
@@ -401,65 +420,74 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile }) => {
         className="flex-1 overflow-y-auto custom-scrollbar"
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-          <div className="grid lg:grid-cols-3 gap-6 sm:gap-8">
-            {/* Main Generator Area */}
-            <div className="lg:col-span-2 order-1 lg:order-none">
-              <Generator 
-                userProfile={userProfile} 
-                onShowPricing={() => setShowPricing(true)} 
-                onDocumentCreated={() => {}}
-              />
-            </div>
+          {activeTab === 'documents' ? (
+            <div className="grid lg:grid-cols-3 gap-6 sm:gap-8">
+              {/* Main Generator Area */}
+              <div className="lg:col-span-2 order-1 lg:order-none">
+                <Generator 
+                  userProfile={userProfile} 
+                  onShowPricing={() => setShowPricing(true)} 
+                  onDocumentCreated={() => {}}
+                />
+              </div>
 
-            {/* Sidebar - History */}
-            <div className="lg:col-span-1 order-2 lg:order-none">
-              <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 sm:p-6 lg:sticky lg:top-8">
-                <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
-                  <Clock className="w-5 h-5 text-slate-400" />
-                  היסטוריית מסמכים
-                </h3>
-                
-                <div className="space-y-3 max-h-[40vh] lg:max-h-[60vh] overflow-y-auto pl-2 custom-scrollbar">
-                  {documents.length === 0 ? (
-                    <p className="text-slate-500 text-sm text-center py-8">עדיין לא יצרת מסמכים. התחל עכשיו!</p>
-                  ) : (
-                    documents.map((doc) => (
-                      <button
-                        key={doc.id}
-                        onClick={() => setSelectedDoc(doc)}
-                        className="w-full text-right p-4 rounded-xl border border-slate-100 hover:border-indigo-200 hover:bg-indigo-50 transition-all group"
-                      >
-                        <div className="flex items-center gap-3 mb-2">
-                          <FileText className={`w-5 h-5 shrink-0 ${doc.type === 'resume' ? 'text-blue-500' : 'text-emerald-500'}`} />
-                          <span className="font-medium text-slate-900 group-hover:text-indigo-700 truncate">
-                            {doc.type === 'resume' ? 'קורות חיים' : 'מכתב מקדים'}
-                          </span>
-                          {doc.template && (
-                            <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full whitespace-nowrap">
-                              {doc.template === 'modern' ? 'מודרני' : 
-                               doc.template === 'creative' ? 'יצירתי' : 
-                               doc.template === 'executive' ? 'ניהולי' : 
-                               doc.template === 'formal' ? 'רשמי' : 
-                               doc.template === 'startup' ? 'סטארטאפ' : doc.template}
+              {/* Sidebar - History */}
+              <div className="lg:col-span-1 order-2 lg:order-none">
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 sm:p-6 lg:sticky lg:top-8">
+                  <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                    <Clock className="w-5 h-5 text-slate-400" />
+                    היסטוריית מסמכים
+                  </h3>
+                  
+                  <div className="space-y-3 max-h-[40vh] lg:max-h-[60vh] overflow-y-auto pl-2 custom-scrollbar">
+                    {documents.length === 0 ? (
+                      <p className="text-slate-500 text-sm text-center py-8">עדיין לא יצרת מסמכים. התחל עכשיו!</p>
+                    ) : (
+                      documents.map((doc) => (
+                        <button
+                          key={doc.id}
+                          onClick={() => setSelectedDoc(doc)}
+                          className="w-full text-right p-4 rounded-xl border border-slate-100 hover:border-indigo-200 hover:bg-indigo-50 transition-all group"
+                        >
+                          <div className="flex items-center gap-3 mb-2">
+                            <FileText className={`w-5 h-5 shrink-0 ${doc.type === 'resume' ? 'text-blue-500' : 'text-emerald-500'}`} />
+                            <span className="font-medium text-slate-900 group-hover:text-indigo-700 truncate">
+                              {doc.type === 'resume' ? 'קורות חיים' : 'מכתב מקדים'}
                             </span>
-                          )}
-                        </div>
-                        <div className="text-xs text-slate-400">
-                          {new Date(doc.createdAt).toLocaleDateString('he-IL', {
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
-                        </div>
-                      </button>
-                    ))
-                  )}
+                            {doc.isPublic && doc.slug && (
+                              <div className="bg-emerald-100 text-emerald-700 p-1 rounded-full" title="ציבורי">
+                                <Share2 className="w-3 h-3" />
+                              </div>
+                            )}
+                            {doc.template && (
+                              <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full whitespace-nowrap">
+                                {doc.template === 'modern' ? 'מודרני' : 
+                                 doc.template === 'creative' ? 'יצירתי' : 
+                                 doc.template === 'executive' ? 'ניהולי' : 
+                                 doc.template === 'formal' ? 'רשמי' : 
+                                 doc.template === 'startup' ? 'סטארטאפ' : doc.template}
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-xs text-slate-400">
+                            {new Date(doc.createdAt).toLocaleDateString('he-IL', {
+                              year: 'numeric',
+                              month: 'long',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </div>
+                        </button>
+                      ))
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          ) : (
+            <ProfileSettings userProfile={userProfile} />
+          )}
         </div>
       </main>
 
@@ -607,6 +635,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile }) => {
                         className={`prose max-w-none text-right bg-white p-8 sm:p-12 shadow-lg rounded-sm min-h-full ${getTemplateStyles(selectedDoc.template)}`} 
                         dir="rtl"
                       >
+                        {selectedDoc.photoUrl && (
+                          <div className="flex justify-center mb-8">
+                            <img 
+                              src={selectedDoc.photoUrl} 
+                              alt="Profile" 
+                              className="w-24 h-24 rounded-xl object-cover border-2 border-white shadow-md ring-1 ring-slate-200"
+                              referrerPolicy="no-referrer"
+                            />
+                          </div>
+                        )}
                         <ReactMarkdown>{editedContent}</ReactMarkdown>
                       </div>
                     </div>
@@ -620,6 +658,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile }) => {
                     dir="rtl"
                     style={{ maxWidth: '1000px' }}
                   >
+                    {selectedDoc.photoUrl && (
+                      <div className="flex justify-center mb-10">
+                        <img 
+                          src={selectedDoc.photoUrl} 
+                          alt="Profile" 
+                          className="w-32 h-32 rounded-2xl object-cover border-4 border-white shadow-lg ring-1 ring-slate-200"
+                          referrerPolicy="no-referrer"
+                        />
+                      </div>
+                    )}
                     <ReactMarkdown>{parseContent(selectedDoc.content).body}</ReactMarkdown>
                   </div>
                 </div>

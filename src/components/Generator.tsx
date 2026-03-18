@@ -73,6 +73,8 @@ export const Generator: React.FC<GeneratorProps> = ({ userProfile, onShowPricing
   const [education, setEducation] = useState('');
   const [template, setTemplate] = useState('modern');
   const [coverLetterTemplate, setCoverLetterTemplate] = useState('formal');
+  const [photoUrl, setPhotoUrl] = useState('');
+  const [includePersonalLink, setIncludePersonalLink] = useState(false);
   
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<string | null>(null);
@@ -148,6 +150,17 @@ export const Generator: React.FC<GeneratorProps> = ({ userProfile, onShowPricing
           </style>
         </head>
         <body>
+          ${photoUrl ? `
+            <div style="text-align: center; margin-bottom: 24px;">
+              <img src="${photoUrl}" style="width: 120px; height: 120px; border-radius: 12px; object-fit: cover; border: 4px solid white; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);" referrerPolicy="no-referrer" />
+            </div>
+          ` : ''}
+          ${includePersonalLink && userProfile.username ? `
+            <div style="text-align: center; margin-bottom: 24px; padding: 12px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
+              <p style="margin: 0; font-size: 12px; color: #64748b;">צפה בגרסה המקוונת והמעודכנת שלי:</p>
+              <a href="${window.location.origin}/u/${userProfile.username}" style="font-size: 14px; color: #4f46e5; font-weight: bold; text-decoration: none;">${window.location.origin}/u/${userProfile.username}</a>
+            </div>
+          ` : ''}
           ${resultRef.current.innerHTML}
           <script>
             window.onload = () => {
@@ -192,7 +205,8 @@ export const Generator: React.FC<GeneratorProps> = ({ userProfile, onShowPricing
     try {
       let content = '';
       if (type === 'resume') {
-        content = await generateResume(jobTitle, skills, experience, education, template);
+        const personalLink = includePersonalLink && userProfile.username ? `${window.location.origin}/u/${userProfile.username}` : undefined;
+        content = await generateResume(jobTitle, skills, experience, education, template, personalLink);
       } else {
         if (userProfile.plan === 'free') {
           setLoading(false);
@@ -206,14 +220,17 @@ export const Generator: React.FC<GeneratorProps> = ({ userProfile, onShowPricing
       const docId = Date.now().toString();
       setCurrentDocId(docId);
       try {
-        await setDoc(doc(db, 'documents', docId), {
-          id: docId,
-          userId: userProfile.uid,
-          type,
-          content,
-          createdAt: new Date().toISOString(),
-          ...(type === 'resume' ? { template } : { template: coverLetterTemplate })
-        });
+          await setDoc(doc(db, 'documents', docId), {
+            id: docId,
+            userId: userProfile.uid,
+            type,
+            content,
+            createdAt: new Date().toISOString(),
+            photoUrl: photoUrl || undefined,
+            isPublic: true,
+            includePersonalLink: includePersonalLink || false,
+            ...(type === 'resume' ? { template } : { template: coverLetterTemplate })
+          });
       } catch (err) {
         handleFirestoreError(err, OperationType.CREATE, `documents/${docId}`);
       }
@@ -330,6 +347,54 @@ export const Generator: React.FC<GeneratorProps> = ({ userProfile, onShowPricing
               placeholder="למשל: תואר ראשון במדעי המחשב, אוניברסיטת תל אביב"
               className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none"
             />
+          </div>
+        )}
+
+        {type === 'resume' && (
+          <div className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-3">בחר תמונת פרופיל</label>
+              <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setPhotoUrl('')}
+                  className={`aspect-square rounded-xl border-2 flex items-center justify-center transition-all ${photoUrl === '' ? 'border-indigo-600 bg-indigo-50' : 'border-slate-200 hover:border-slate-300'}`}
+                >
+                  <span className="text-[10px] font-bold text-slate-500">ללא</span>
+                </button>
+                {userProfile.photos?.map((photo, index) => (
+                  <button
+                    key={index}
+                    type="button"
+                    onClick={() => setPhotoUrl(photo)}
+                    className={`aspect-square rounded-xl border-2 overflow-hidden transition-all ${photoUrl === photo ? 'border-indigo-600 ring-2 ring-indigo-100' : 'border-slate-200 hover:border-slate-300'}`}
+                  >
+                    <img src={photo} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  </button>
+                ))}
+              </div>
+              {(!userProfile.photos || userProfile.photos.length === 0) && (
+                <p className="text-xs text-slate-500 mt-2">טיפ: ניתן להוסיף תמונות פרופיל בלשונית "פרופיל והגדרות".</p>
+              )}
+            </div>
+
+            {userProfile.username && (
+              <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100 flex items-center justify-between gap-4">
+                <div className="flex-1">
+                  <h4 className="text-sm font-bold text-indigo-900 mb-1">הוספת לינק לדף האישי</h4>
+                  <p className="text-xs text-indigo-700">הוסף את הכתובת הקבועה שלך לקורות החיים: <span className="font-mono">{window.location.origin}/u/{userProfile.username}</span></p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={includePersonalLink}
+                    onChange={(e) => setIncludePersonalLink(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                </label>
+              </div>
+            )}
           </div>
         )}
 

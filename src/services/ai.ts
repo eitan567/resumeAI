@@ -7,7 +7,8 @@ export const generateResume = async (
   skills: string,
   experience: string,
   education: string,
-  template: string = 'modern'
+  template: string = 'modern',
+  personalLink?: string
 ): Promise<string> => {
   let templateInstructions = '';
   if (template === 'modern') {
@@ -24,8 +25,10 @@ export const generateResume = async (
     Skills: ${skills}
     Experience: ${experience}
     Education: ${education}
+    ${personalLink ? `Personal Profile Link: ${personalLink}` : ''}
     
     Format the output in clear Markdown. Include sections for Summary, Experience, Education, and Skills.
+    If a Personal Profile Link is provided, include it prominently in the contact information section.
     Make it sound professional, impactful, and tailored for the Israeli job market.
     
     TEMPLATE INSTRUCTIONS:

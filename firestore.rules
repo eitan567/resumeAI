@@ -69,26 +69,32 @@ service cloud.firestore {
 
     // Domain Validators
     function isValidUser(data) {
-      return hasOnlyAllowedFields(['uid', 'email', 'name', 'plan', 'credits', 'createdAt', 'proExpiresAt', 'reminderSent', 'role']) &&
-             data.uid is string && data.uid.size() > 0 && data.uid.size() < 100 &&
-             data.email is string && isValidEmail(data.email) && data.email.size() < 150 &&
-             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
-             data.plan in ['free', 'pro'] &&
-             data.credits is number && data.credits >= 0 &&
-             (data.createdAt is string || data.createdAt is timestamp) &&
+      return hasOnlyAllowedFields(['uid', 'email', 'name', 'plan', 'credits', 'createdAt', 'proExpiresAt', 'reminderSent', 'role', 'username', 'photos']) &&
+             (!('uid' in data) || (data.uid is string && data.uid.size() > 0 && data.uid.size() < 100)) &&
+             (!('email' in data) || (data.email is string && isValidEmail(data.email) && data.email.size() < 150)) &&
+             (!('name' in data) || (data.name is string && data.name.size() > 0 && data.name.size() < 100)) &&
+             (!('plan' in data) || data.plan in ['free', 'pro']) &&
+             (!('credits' in data) || (data.credits is number && data.credits >= 0)) &&
+             (!('createdAt' in data) || (data.createdAt is string || data.createdAt is timestamp)) &&
              (!('proExpiresAt' in data) || data.proExpiresAt is string || data.proExpiresAt is timestamp) &&
              (!('reminderSent' in data) || data.reminderSent is bool) &&
-             (!('role' in data) || data.role in ['admin', 'user']);
+             (!('role' in data) || data.role in ['admin', 'user']) &&
+             (!('username' in data) || (data.username is string && data.username.size() >= 3 && data.username.size() < 50 && data.username.matches("^[a-z0-9-]+$"))) &&
+             (!('photos' in data) || (data.photos is list && data.photos.size() < 20));
     }
 
     function isValidDocument(data) {
-      return hasOnlyAllowedFields(['id', 'userId', 'type', 'content', 'createdAt', 'template']) &&
-             data.id is string && data.id.size() > 0 && data.id.size() < 100 &&
-             data.userId is string && data.userId.size() > 0 && data.userId.size() < 100 &&
-             data.type in ['resume', 'cover_letter'] &&
-             data.content is string && data.content.size() > 0 && data.content.size() < 50000 &&
-             (data.createdAt is string || data.createdAt is timestamp) &&
-             (!('template' in data) || (data.template is string && data.template.size() < 50));
+      return hasOnlyAllowedFields(['id', 'userId', 'type', 'content', 'createdAt', 'template', 'photoUrl', 'slug', 'isPublic', 'includePersonalLink']) &&
+             (!('id' in data) || (data.id is string && data.id.size() > 0 && data.id.size() < 100)) &&
+             (!('userId' in data) || (data.userId is string && data.userId.size() > 0 && data.userId.size() < 100)) &&
+             (!('type' in data) || data.type in ['resume', 'cover_letter']) &&
+             (!('content' in data) || (data.content is string && data.content.size() > 0 && data.content.size() < 50000)) &&
+             (!('createdAt' in data) || (data.createdAt is string || data.createdAt is timestamp)) &&
+             (!('template' in data) || (data.template is string && data.template.size() < 50)) &&
+             (!('photoUrl' in data) || (data.photoUrl is string && data.photoUrl.size() < 2000)) &&
+             (!('slug' in data) || (data.slug is string && data.slug.size() < 100)) &&
+             (!('isPublic' in data) || data.isPublic is bool) &&
+             (!('includePersonalLink' in data) || data.includePersonalLink is bool);
     }
 
     function isValidSupportRequest(data) {
@@ -122,6 +128,7 @@ service cloud.firestore {
       // Allow user to create their own profile. Default to 'free' plan and 3 credits.
       allow create: if isOwner(userId) && 
                        isValidUser(request.resource.data) && 
+                       hasRequiredFields(['uid', 'email', 'name', 'createdAt']) &&
                        uidUnchanged() &&
                        request.resource.data.plan == 'free' &&
                        request.resource.data.credits == 3 &&
@@ -131,25 +138,26 @@ service cloud.firestore {
       allow update: if isOwner(userId) && 
                        isValidUser(request.resource.data) && 
                        uidNotModified() &&
-                       request.resource.data.createdAt == resource.data.createdAt &&
-                       request.resource.data.email == resource.data.email &&
-                       (request.resource.data.role == resource.data.role || isAdmin());
+                       request.resource.data.get('createdAt', resource.data.get('createdAt', null)) == resource.data.get('createdAt', null) &&
+                       request.resource.data.get('email', resource.data.get('email', null)) == resource.data.get('email', null) &&
+                       (request.resource.data.get('role', 'user') == resource.data.get('role', 'user') || isAdmin());
                        
       allow delete: if false;
     }
 
     match /documents/{documentId} {
-      allow read: if isDocOwner() || isAdmin();
+      allow read: if isDocOwner() || isAdmin() || resource.data.isPublic == true;
       
       allow create: if isAuthenticated() && 
                        request.resource.data.userId == request.auth.uid &&
-                       isValidDocument(request.resource.data);
+                       isValidDocument(request.resource.data) &&
+                       hasRequiredFields(['id', 'userId', 'type', 'content', 'createdAt']);
                        
       allow update: if isDocOwner() && 
                        isValidDocument(request.resource.data) &&
-                       request.resource.data.id == resource.data.id &&
-                       request.resource.data.userId == resource.data.userId &&
-                       request.resource.data.createdAt == resource.data.createdAt;
+                       request.resource.data.get('id', resource.data.id) == resource.data.id &&
+                       request.resource.data.get('userId', resource.data.userId) == resource.data.userId &&
+                       request.resource.data.get('createdAt', resource.data.createdAt) == resource.data.createdAt;
                        
       allow delete: if isDocOwner() || isAdmin();
     }
