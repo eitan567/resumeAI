@@ -95,8 +95,21 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile }) => {
     }
   };
 
+  const parseContent = (content: string) => {
+    const separator = '---\n';
+    const parts = content.split(separator);
+    if (parts.length > 1 && !parts[0].includes('#')) {
+      return {
+        intro: parts[0].trim(),
+        body: parts.slice(1).join(separator).trim()
+      };
+    }
+    return { intro: null, body: content.trim() };
+  };
+
   const handleEditClick = () => {
-    setEditedContent(selectedDoc?.content || '');
+    const { body } = parseContent(selectedDoc?.content || '');
+    setEditedContent(body);
     setIsEditing(true);
   };
 
@@ -104,10 +117,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile }) => {
     if (!selectedDoc) return;
     setIsSaving(true);
     try {
+      const { intro } = parseContent(selectedDoc.content);
+      const fullContent = intro ? `${intro}\n---\n${editedContent}` : editedContent;
+      
       await updateDoc(doc(db, 'documents', selectedDoc.id), {
-        content: editedContent
+        content: fullContent
       });
-      setSelectedDoc({ ...selectedDoc, content: editedContent });
+      setSelectedDoc({ ...selectedDoc, content: fullContent });
       setIsEditing(false);
     } catch (err) {
       console.error(err);
@@ -546,6 +562,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile }) => {
               </div>
             </div>
             <div className={`p-4 sm:p-6 overflow-y-auto custom-scrollbar ${isEditing ? 'flex-1 flex flex-col' : ''}`}>
+              {selectedDoc && parseContent(selectedDoc.content).intro && (
+                <div className="mb-6 bg-indigo-50 border border-indigo-100 rounded-2xl p-4 sm:p-5 flex gap-4 items-start shadow-sm">
+                  <div className="bg-white p-2 rounded-xl shadow-sm shrink-0">
+                    <Sparkles className="w-5 h-5 text-indigo-600" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-indigo-900 mb-1">הערות ה-AI על הגרסה הזו:</h4>
+                    <p className="text-sm text-indigo-700 leading-relaxed">
+                      {parseContent(selectedDoc.content).intro}
+                    </p>
+                  </div>
+                </div>
+              )}
+              
               {pdfError && (
                 <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg text-sm text-right" dir="rtl">
                   {pdfError}
@@ -590,7 +620,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile }) => {
                     dir="rtl"
                     style={{ maxWidth: '1000px' }}
                   >
-                    <ReactMarkdown>{selectedDoc.content}</ReactMarkdown>
+                    <ReactMarkdown>{parseContent(selectedDoc.content).body}</ReactMarkdown>
                   </div>
                 </div>
               )}
