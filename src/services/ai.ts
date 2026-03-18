@@ -20,18 +20,24 @@ export const generateResume = async (
   }
 
   const prompt = `
-    You are an expert resume writer. Create a professional resume in Hebrew based on the following details:
+    You are an expert resume writer. Create a professional, high-impact resume in Hebrew based on the following details:
     Job Title: ${jobTitle}
     Skills: ${skills}
     Experience: ${experience}
     Education: ${education}
     ${personalLink ? `Personal Profile Link: ${personalLink}` : ''}
     
-    Format the output in clear Markdown. Include sections for Summary, Experience, Education, and Skills.
-    If a Personal Profile Link is provided, include it prominently in the contact information section.
-    Make it sound professional, impactful, and tailored for the Israeli job market.
+    Format the output in clear Markdown. 
+    CRITICAL INSTRUCTIONS:
+    1. Include a "Summary" (תמצית מקצועית) section that is engaging and highlights key strengths.
+    2. Include an "Experience" (ניסיון תעסוקתי) section with clear dates, company names, and bullet points for achievements.
+    3. Include an "Education" (השכלה) section.
+    4. Include a "Skills" (כישורים ומיומנויות) section.
+    5. ${personalLink ? `IMPORTANT: Include the Personal Profile Link (${personalLink}) prominently at the very top under the name/title or in a dedicated "Contact Information" (פרטי התקשרות) section.` : ''}
+    6. Use professional Hebrew terminology suitable for the Israeli high-tech and corporate sectors.
+    7. Do not include a "Name" header in the markdown, as it will be added by the UI.
     
-    TEMPLATE INSTRUCTIONS:
+    TEMPLATE STYLE:
     ${templateInstructions}
   `;
 

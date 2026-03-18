@@ -105,16 +105,16 @@ export const PublicProfile: React.FC = () => {
       {/* Header / Cover */}
       <div className="h-48 sm:h-64 bg-gradient-to-r from-indigo-600 to-violet-700 relative">
         <div className="absolute -bottom-16 left-0 right-0 max-w-5xl mx-auto px-4 flex flex-col sm:flex-row items-center sm:items-end gap-6">
-          <div className="w-32 h-32 sm:w-40 sm:h-40 bg-white rounded-2xl p-1 shadow-xl relative z-10">
+          <div className="w-32 h-32 sm:w-40 sm:h-40 bg-white rounded-full p-1 shadow-2xl relative z-10 ring-8 ring-white/20">
             {latestResume?.photoUrl ? (
               <img 
                 src={latestResume.photoUrl} 
                 alt={user.name} 
-                className="w-full h-full object-cover rounded-xl"
+                className="w-full h-full object-cover rounded-full"
                 referrerPolicy="no-referrer"
               />
             ) : (
-              <div className="w-full h-full bg-slate-100 rounded-xl flex items-center justify-center text-slate-400">
+              <div className="w-full h-full bg-slate-100 rounded-full flex items-center justify-center text-slate-400">
                 <User className="w-16 h-16" />
               </div>
             )}

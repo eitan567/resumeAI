@@ -6,103 +6,67 @@ import nodemailer from "nodemailer";
 import { initializeApp, applicationDefault, getApps } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 import fs from "fs";
+import { initializeApp as initializeClientApp } from "firebase/app";
+import { getFirestore as getClientFirestore, collection, query, where, getDocs, doc, updateDoc } from "firebase/firestore";
 
 async function startServer() {
+  fs.writeFileSync("startup-test.log", "STARTING SERVER\n");
   const app = express();
   const PORT = 3000;
 
   // Initialize Firebase Admin
-  let db: FirebaseFirestore.Firestore | null = null;
+  let db: FirebaseFirestore.Firestore;
+  let clientDb: any;
+
+  // Initialize Firebase Admin with a named app to ensure correct project/database
+  const configPath = path.join(process.cwd(), "firebase-applet-config.json");
+  const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
+  
+  const appName = "admin-app";
+  let adminApp;
+  if (getApps().find(a => a.name === appName)) {
+    adminApp = getApps().find(a => a.name === appName)!;
+  } else {
+    adminApp = initializeApp({
+      credential: applicationDefault(),
+      projectId: config.projectId,
+    }, appName);
+  }
+
+  // Use the database ID from config, fallback to default if it fails
+  const databaseId = config.firestoreDatabaseId && config.firestoreDatabaseId !== "(default)" 
+    ? config.firestoreDatabaseId 
+    : undefined;
+  
+  db = getFirestore(adminApp, databaseId);
+  console.log(`Firebase Admin initialized for project: ${config.projectId}, database: ${databaseId || "(default)"} using app: ${appName}`);
+
+  // Initialize Client SDK as fallback
+  const clientApp = initializeClientApp(config);
+  clientDb = getClientFirestore(clientApp, databaseId);
+  console.log(`Firebase Client SDK initialized for database: ${databaseId || "(default)"}`);
+
+  // Verify Client SDK connection
   try {
-    const configPath = path.join(process.cwd(), "firebase-applet-config.json");
-    if (fs.existsSync(configPath)) {
-      const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
-      fs.writeFileSync("startup-test.log", `Using Project ID: ${config.projectId}, Database ID: ${config.firestoreDatabaseId}\n`);
-      
-      if (getApps().length === 0) {
-        initializeApp({
-          credential: applicationDefault(),
-          projectId: config.projectId,
-        });
-      }
-      
-      // Try the named database from config
-      const namedDb = getFirestore(config.firestoreDatabaseId);
-      db = namedDb;
-      console.log(`Firebase Admin initialized for project: ${config.projectId}, database: ${config.firestoreDatabaseId}`);
-      
-      // Startup test query to verify permissions and identify the correct database
-      namedDb.collection("users").limit(1).get()
-        .then(snap => {
-          console.log(`Startup test query successful on database ${config.firestoreDatabaseId}. Found ${snap.size} users.`);
-          fs.writeFileSync("startup-test.log", `SUCCESS: Found ${snap.size} users on ${config.firestoreDatabaseId}\n`);
-        })
-        .catch(async (err: any) => {
-          console.error(`Startup test query failed on database ${config.firestoreDatabaseId}:`, err.message);
-          fs.appendFileSync("startup-test.log", `FAILED: ${err.message} on ${config.firestoreDatabaseId}\n`);
-          
-          console.log("Attempting a test write...");
-          try {
-            await namedDb.collection("test_connection").doc("startup").set({ timestamp: new Date().toISOString() });
-            console.log("Test write successful!");
-            fs.appendFileSync("startup-test.log", "SUCCESS: Test write worked!\n");
-          } catch (writeErr: any) {
-            console.error("Test write failed:", writeErr.message);
-            fs.appendFileSync("startup-test.log", `FAILED: Test write ${writeErr.message}\n`);
-          }
+    const q = query(collection(clientDb, "users"), where("plan", "==", "pro"));
+    const snap = await getDocs(q);
+    console.log(`Firebase Client SDK connection verified. Found ${snap.docs.length} pro users.`);
+    fs.appendFileSync("startup-test.log", `CLIENT SUCCESS: Found ${snap.docs.length} pro users on ${databaseId || "(default)"}\n`);
+  } catch (err: any) {
+    console.error(`Firebase Client SDK connection failed:`, err.message);
+    fs.appendFileSync("startup-test.log", `CLIENT FAILED: ${err.message} on ${databaseId || "(default)"}\n`);
+  }
 
-          console.log("Attempting collectionGroup test...");
-          try {
-            const groupSnap = await namedDb.collectionGroup("users").limit(1).get();
-            console.log(`CollectionGroup test successful on ${config.firestoreDatabaseId}. Found ${groupSnap.size} docs.`);
-            fs.appendFileSync("startup-test.log", `SUCCESS: CollectionGroup found ${groupSnap.size} docs on ${config.firestoreDatabaseId}\n`);
-          } catch (groupErr: any) {
-            console.error(`CollectionGroup test failed on ${config.firestoreDatabaseId}:`, groupErr.message);
-            fs.appendFileSync("startup-test.log", `FAILED: CollectionGroup ${groupErr.message} on ${config.firestoreDatabaseId}\n`);
-          }
-
-          console.log("Attempting to fallback to (default) database of the same project...");
-          const defaultDb = getFirestore(); // This uses the default app initialized above
-          try {
-            const snap = await defaultDb.collection("users").limit(1).get();
-            console.log(`Startup test successful on (default) database of ${config.projectId}. Found ${snap.size} users. Switching to (default).`);
-            db = defaultDb;
-            fs.appendFileSync("startup-test.log", `SUCCESS: Found ${snap.size} users on (default) database of ${config.projectId}\n`);
-          } catch (err2: any) {
-            console.error(`Startup test failed on (default) database of ${config.projectId} too:`, err2.message);
-            fs.appendFileSync("startup-test.log", `FAILED: ${err2.message} on (default) database of ${config.projectId}\n`);
-          }
-
-          console.log("Attempting auto-discovery (no projectId in initializeApp)...");
-          try {
-            if (getApps().find(app => app.name === "auto")) {
-              const autoApp = getApps().find(app => app.name === "auto")!;
-              const autoDb = getFirestore(autoApp);
-              const snap = await autoDb.collection("users").limit(1).get();
-              console.log(`Auto-discovery successful! Found ${snap.size} users.`);
-              db = autoDb;
-              fs.appendFileSync("startup-test.log", `SUCCESS: Auto-discovery worked! Found ${snap.size} users.\n`);
-            } else {
-              const autoApp = initializeApp({}, "auto");
-              const autoDb = getFirestore(autoApp);
-              const snap = await autoDb.collection("users").limit(1).get();
-              console.log(`Auto-discovery successful! Found ${snap.size} users.`);
-              db = autoDb;
-              fs.appendFileSync("startup-test.log", `SUCCESS: Auto-discovery worked! Found ${snap.size} users.\n`);
-            }
-          } catch (autoErr: any) {
-            console.error("Auto-discovery failed:", autoErr.message);
-            fs.appendFileSync("startup-test.log", `FAILED: Auto-discovery ${autoErr.message}\n`);
-          }
-        });
-
-      // List collections for debugging
-      db.listCollections()
-        .then(cols => console.log("Available collections:", cols.map(c => c.id)))
-        .catch(err => console.error("Failed to list collections:", err.message));
-    }
-  } catch (err) {
-    console.error("Failed to initialize Firebase Admin:", err);
+  // Verify Admin SDK update permission
+  try {
+    const testDoc = db.collection("users").doc("test-connection-" + Date.now());
+    await testDoc.set({ test: true, createdAt: new Date().toISOString() });
+    console.log("Admin SDK update permission verified.");
+    fs.appendFileSync("startup-test.log", `ADMIN UPDATE SUCCESS on ${databaseId || "(default)"}\n`);
+    await testDoc.delete();
+  } catch (err: any) {
+    console.error(`Admin SDK update permission failed:`, err.message);
+    fs.appendFileSync("startup-test.log", `ADMIN UPDATE FAILED: ${err.message} on ${databaseId || "(default)"}\n`);
   }
 
   // Configure Nodemailer
@@ -149,22 +113,46 @@ async function startServer() {
       const threeDaysFromNow = new Date();
       threeDaysFromNow.setDate(now.getDate() + 3);
 
-      // Query users whose plan is 'pro', reminderSent is false, and proExpiresAt is within 3 days
-      const usersRef = db.collection("users");
-      const snapshot = await usersRef
-        .where("plan", "==", "pro")
-        .where("reminderSent", "==", false)
-        .where("proExpiresAt", "<=", threeDaysFromNow.toISOString())
-        .get();
+      // Try Admin SDK first, fallback to Client SDK if it fails with PERMISSION_DENIED
+      let docs: any[] = [];
+      try {
+        const usersRef = db.collection("users");
+        const snapshot = await usersRef
+          .where("plan", "==", "pro")
+          .where("reminderSent", "==", false)
+          .where("proExpiresAt", "<=", threeDaysFromNow.toISOString())
+          .get();
+        console.log(`Admin SDK query successful: Found ${snapshot.size} users.`);
+        docs = snapshot.docs;
+      } catch (adminErr: any) {
+        if (adminErr.message.includes("PERMISSION_DENIED") || adminErr.message.includes("Missing or insufficient permissions")) {
+          console.log("Admin SDK query failed with PERMISSION_DENIED. Falling back to Client SDK for query...");
+          const q = query(
+            collection(clientDb, "users"),
+            where("plan", "==", "pro"),
+            where("reminderSent", "==", false),
+            where("proExpiresAt", "<=", threeDaysFromNow.toISOString())
+          );
+          const clientSnap = await getDocs(q);
+          console.log(`Client SDK query successful: Found ${clientSnap.docs.length} users.`);
+          
+          // Use Admin SDK for the document references to ensure we can update them
+          docs = clientSnap.docs.map(d => ({
+            id: d.id,
+            data: () => d.data(),
+            ref: db.collection("users").doc(d.id)
+          }));
+        } else {
+          throw adminErr;
+        }
+      }
 
-      if (snapshot.empty) {
+      if (docs.length === 0) {
         console.log("No users found with expiring subscriptions.");
         return;
       }
 
-      console.log(`Found ${snapshot.size} users with expiring subscriptions.`);
-
-      for (const doc of snapshot.docs) {
+      for (const doc of docs) {
         const user = doc.data();
         
         // Send email
@@ -208,16 +196,42 @@ async function startServer() {
       const threeDaysFromNow = new Date();
       threeDaysFromNow.setDate(now.getDate() + 3);
 
-      const usersRef = db.collection("users");
-      const snapshot = await usersRef
-        .where("plan", "==", "pro")
-        .where("reminderSent", "==", false)
-        .where("proExpiresAt", "<=", threeDaysFromNow.toISOString())
-        .get();
+      // Try Admin SDK first, fallback to Client SDK if it fails with PERMISSION_DENIED
+      let docs: any[] = [];
+      try {
+        const usersRef = db.collection("users");
+        const snapshot = await usersRef
+          .where("plan", "==", "pro")
+          .where("reminderSent", "==", false)
+          .where("proExpiresAt", "<=", threeDaysFromNow.toISOString())
+          .get();
+        console.log(`Admin SDK query successful: Found ${snapshot.size} users.`);
+        docs = snapshot.docs;
+      } catch (adminErr: any) {
+        if (adminErr.message.includes("PERMISSION_DENIED") || adminErr.message.includes("Missing or insufficient permissions")) {
+          console.log("Admin SDK query failed with PERMISSION_DENIED. Falling back to Client SDK for query...");
+          const q = query(
+            collection(clientDb, "users"),
+            where("plan", "==", "pro"),
+            where("reminderSent", "==", false),
+            where("proExpiresAt", "<=", threeDaysFromNow.toISOString())
+          );
+          const clientSnap = await getDocs(q);
+          console.log(`Client SDK query successful: Found ${clientSnap.docs.length} users.`);
+          
+          docs = clientSnap.docs.map(d => ({
+            id: d.id,
+            data: () => d.data(),
+            ref: db.collection("users").doc(d.id)
+          }));
+        } else {
+          throw adminErr;
+        }
+      }
 
       const sentTo = [];
 
-      for (const doc of snapshot.docs) {
+      for (const doc of docs) {
         const user = doc.data();
         try {
           const info = await transporter.sendMail({

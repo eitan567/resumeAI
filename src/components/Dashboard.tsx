@@ -637,12 +637,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile }) => {
                       >
                         {selectedDoc.photoUrl && (
                           <div className="flex justify-center mb-8">
-                            <img 
-                              src={selectedDoc.photoUrl} 
-                              alt="Profile" 
-                              className="w-24 h-24 rounded-xl object-cover border-2 border-white shadow-md ring-1 ring-slate-200"
-                              referrerPolicy="no-referrer"
-                            />
+                            <div className="relative">
+                              <div className="w-24 h-24 rounded-full overflow-hidden shadow-xl border-2 border-white ring-4 ring-slate-50 relative z-10">
+                                <img 
+                                  src={selectedDoc.photoUrl} 
+                                  alt="Profile" 
+                                  className="w-full h-full object-cover"
+                                  referrerPolicy="no-referrer"
+                                />
+                              </div>
+                              <div className="absolute -top-1 -right-1 w-24 h-24 rounded-full bg-indigo-50 -z-0" />
+                            </div>
                           </div>
                         )}
                         <ReactMarkdown>{editedContent}</ReactMarkdown>
@@ -660,12 +665,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile }) => {
                   >
                     {selectedDoc.photoUrl && (
                       <div className="flex justify-center mb-10">
-                        <img 
-                          src={selectedDoc.photoUrl} 
-                          alt="Profile" 
-                          className="w-32 h-32 rounded-2xl object-cover border-4 border-white shadow-lg ring-1 ring-slate-200"
-                          referrerPolicy="no-referrer"
-                        />
+                        <div className="relative">
+                          <div className="w-32 h-32 rounded-full overflow-hidden shadow-2xl border-4 border-white ring-8 ring-slate-50 relative z-10">
+                            <img 
+                              src={selectedDoc.photoUrl} 
+                              alt="Profile" 
+                              className="w-full h-full object-cover"
+                              referrerPolicy="no-referrer"
+                            />
+                          </div>
+                          <div className="absolute -top-1 -right-1 w-32 h-32 rounded-full bg-indigo-50 -z-0" />
+                        </div>
                       </div>
                     )}
                     <ReactMarkdown>{parseContent(selectedDoc.content).body}</ReactMarkdown>

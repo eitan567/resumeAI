@@ -134,20 +134,22 @@ export const PublicResume: React.FC = () => {
           )}
 
           <div className="p-8 sm:p-16">
-            <div className="flex flex-col md:flex-row gap-8 items-start mb-12 border-b border-slate-100 pb-12">
+            <div className="flex flex-col md:flex-row gap-10 items-center md:items-start mb-12 border-b border-slate-100 pb-12">
               {doc.photoUrl && (
-                <div className="shrink-0 mx-auto md:mx-0">
-                  <div className="w-40 h-40 rounded-2xl overflow-hidden shadow-xl border-4 border-white ring-1 ring-slate-200">
+                <div className="shrink-0 relative">
+                  <div className="w-44 h-44 rounded-full overflow-hidden shadow-2xl border-4 border-white ring-8 ring-slate-50 relative z-10">
                     <img 
                       src={doc.photoUrl} 
                       alt="Profile" 
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover transform hover:scale-105 transition-transform duration-500"
                       referrerPolicy="no-referrer"
                     />
                   </div>
+                  {/* Decorative background element */}
+                  <div className="absolute -top-2 -right-2 w-44 h-44 rounded-full bg-indigo-50 -z-0" />
                 </div>
               )}
-              <div className="flex-1 text-center md:text-right">
+              <div className="flex-1 text-center md:text-right w-full">
                 <div className={`prose max-w-none ${getTemplateStyles(doc.template)}`}>
                   <ReactMarkdown>{body}</ReactMarkdown>
                 </div>

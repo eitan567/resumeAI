@@ -126,56 +126,182 @@ export const Generator: React.FC<GeneratorProps> = ({ userProfile, onShowPricing
         return;
       }
       
+      const isSidebarTemplate = template === 'modern' || template === 'creative';
+      
       const html = `
         <!DOCTYPE html>
         <html dir="rtl">
         <head>
           <title>${type === 'resume' ? 'קורות חיים' : 'מכתב מקדים'}</title>
           <style>
+            @import url('https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;600;700;800&display=swap');
+            
             body {
-              font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+              font-family: 'Assistant', sans-serif;
               color: #1e293b;
-              line-height: 1.6;
-              padding: 40px;
-              max-width: 800px;
-              margin: 0 auto;
+              line-height: 1.5;
+              margin: 0;
+              padding: 0;
+              background: white;
             }
-            h1 { font-size: 28px; font-weight: 800; margin-bottom: 16px; margin-top: 24px; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; color: #0f172a; }
-            h2 { font-size: 20px; font-weight: 700; margin-bottom: 12px; margin-top: 24px; color: #1e293b; }
-            h3 { font-size: 16px; font-weight: 600; margin-bottom: 12px; margin-top: 16px; color: #334155; }
-            p { font-size: 14px; margin-bottom: 12px; }
-            ul, ol { margin-bottom: 16px; padding-right: 24px; }
-            li { font-size: 14px; margin-bottom: 6px; }
-            strong, b { font-weight: 700; color: #0f172a; }
-            em, i { font-style: italic; }
-            a { color: #4f46e5; text-decoration: none; }
+            
+            .resume-container {
+              display: flex;
+              min-height: 100vh;
+              ${isSidebarTemplate ? 'flex-direction: row-reverse;' : 'flex-direction: column;'}
+            }
+            
+            .sidebar {
+              ${isSidebarTemplate ? 'width: 30%; background: #0f172a; color: white; padding: 40px 30px;' : 'display: none;'}
+            }
+            
+            .main-content {
+              ${isSidebarTemplate ? 'width: 70%; padding: 40px 50px;' : 'width: 100%; padding: 50px;'}
+            }
+            
+            .header {
+              ${!isSidebarTemplate ? 'text-align: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 30px; margin-bottom: 30px;' : 'margin-bottom: 40px;'}
+            }
+            
+            .name {
+              font-size: 32px;
+              font-weight: 800;
+              margin: 0;
+              color: ${isSidebarTemplate ? 'white' : '#0f172a'};
+              letter-spacing: -0.02em;
+            }
+            
+            .title {
+              font-size: 18px;
+              font-weight: 600;
+              color: ${isSidebarTemplate ? '#94a3b8' : '#4f46e5'};
+              margin-top: 5px;
+              text-transform: uppercase;
+              letter-spacing: 0.05em;
+            }
+            
+            .photo-container {
+              margin-bottom: 30px;
+              ${!isSidebarTemplate ? 'display: flex; justify-content: center;' : ''}
+            }
+            
+            .photo {
+              width: 140px;
+              height: 140px;
+              border-radius: 50%;
+              object-fit: cover;
+              border: 4px solid ${isSidebarTemplate ? '#1e293b' : 'white'};
+              box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+            }
+            
+            .contact-info {
+              margin-top: 30px;
+              font-size: 13px;
+            }
+            
+            .contact-item {
+              display: flex;
+              align-items: center;
+              gap: 10px;
+              margin-bottom: 12px;
+              color: ${isSidebarTemplate ? '#cbd5e1' : '#475569'};
+            }
+            
+            .personal-link-box {
+              margin-top: 20px;
+              padding: 15px;
+              background: ${isSidebarTemplate ? '#1e293b' : '#f8fafc'};
+              border-radius: 12px;
+              border: 1px solid ${isSidebarTemplate ? '#334155' : '#e2e8f0'};
+            }
+            
+            .personal-link-label {
+              font-size: 11px;
+              color: ${isSidebarTemplate ? '#94a3b8' : '#64748b'};
+              margin-bottom: 5px;
+              display: block;
+            }
+            
+            .personal-link-url {
+              font-size: 13px;
+              font-weight: 700;
+              color: ${isSidebarTemplate ? '#38bdf8' : '#4f46e5'};
+              text-decoration: none;
+              word-break: break-all;
+            }
+            
+            h1, h2, h3 { color: #0f172a; margin-top: 30px; margin-bottom: 15px; }
+            h1 { font-size: 24px; font-weight: 800; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; }
+            h2 { font-size: 18px; font-weight: 700; }
+            
+            .sidebar h1, .sidebar h2, .sidebar h3 { color: white; border-color: #334155; }
+            
+            p { font-size: 14px; margin-bottom: 15px; color: #334155; }
+            ul { padding-right: 20px; margin-bottom: 20px; }
+            li { font-size: 14px; margin-bottom: 8px; color: #334155; }
+            
             @media print {
-              @page { margin: 20mm; }
-              body { padding: 0; }
+              body { -webkit-print-color-adjust: exact; }
+              .resume-container { height: 100%; }
             }
           </style>
         </head>
         <body>
-          ${photoUrl ? `
-            <div style="text-align: center; margin-bottom: 24px;">
-              <img src="${photoUrl}" style="width: 120px; height: 120px; border-radius: 12px; object-fit: cover; border: 4px solid white; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);" referrerPolicy="no-referrer" />
+          <div class="resume-container">
+            <div class="sidebar">
+              ${photoUrl ? `
+                <div class="photo-container">
+                  <img src="${photoUrl}" class="photo" referrerPolicy="no-referrer" />
+                </div>
+              ` : ''}
+              
+              <div class="header">
+                <h1 class="name">${userProfile.name}</h1>
+                <div class="title">${jobTitle}</div>
+              </div>
+              
+              <div class="contact-info">
+                <div class="contact-item">📧 ${userProfile.email}</div>
+                ${includePersonalLink && userProfile.username ? `
+                  <div class="personal-link-box">
+                    <span class="personal-link-label">לינק אישי מעודכן:</span>
+                    <a href="${window.location.origin}/u/${userProfile.username}" class="personal-link-url">${window.location.origin.replace('https://', '')}/u/${userProfile.username}</a>
+                  </div>
+                ` : ''}
+              </div>
             </div>
-          ` : ''}
-          ${includePersonalLink && userProfile.username ? `
-            <div style="text-align: center; margin-bottom: 24px; padding: 12px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
-              <p style="margin: 0; font-size: 12px; color: #64748b;">צפה בגרסה המקוונת והמעודכנת שלי:</p>
-              <a href="${window.location.origin}/u/${userProfile.username}" style="font-size: 14px; color: #4f46e5; font-weight: bold; text-decoration: none;">${window.location.origin}/u/${userProfile.username}</a>
+            
+            <div class="main-content">
+              ${!isSidebarTemplate ? `
+                <div class="header">
+                  ${photoUrl ? `
+                    <div class="photo-container">
+                      <img src="${photoUrl}" class="photo" referrerPolicy="no-referrer" />
+                    </div>
+                  ` : ''}
+                  <h1 class="name">${userProfile.name}</h1>
+                  <div class="title">${jobTitle}</div>
+                  <div class="contact-info" style="display: flex; justify-content: center; gap: 20px; flex-wrap: wrap;">
+                    <span>📧 ${userProfile.email}</span>
+                    ${includePersonalLink && userProfile.username ? `
+                      <span>🔗 ${window.location.origin.replace('https://', '')}/u/${userProfile.username}</span>
+                    ` : ''}
+                  </div>
+                </div>
+              ` : ''}
+              
+              <div class="content-body">
+                ${resultRef.current.querySelector('.resume-content-body')?.innerHTML || resultRef.current.innerHTML}
+              </div>
             </div>
-          ` : ''}
-          ${resultRef.current.innerHTML}
+          </div>
+          
           <script>
             window.onload = () => {
-              try {
+              setTimeout(() => {
                 window.print();
                 setTimeout(() => window.close(), 500);
-              } catch (e) {
-                console.error('Print failed', e);
-              }
+              }, 500);
             };
           </script>
         </body>
@@ -186,7 +312,6 @@ export const Generator: React.FC<GeneratorProps> = ({ userProfile, onShowPricing
       printWindow.document.write(html);
       printWindow.document.close();
       
-      // Clear any previous errors if successful
       if (error && error.includes('PDF')) {
         setError(null);
       }
@@ -232,7 +357,7 @@ export const Generator: React.FC<GeneratorProps> = ({ userProfile, onShowPricing
             type,
             content,
             createdAt: new Date().toISOString(),
-            photoUrl: photoUrl || undefined,
+            photoUrl: photoUrl || null,
             isPublic: true,
             includePersonalLink: includePersonalLink || false,
             ...(type === 'resume' ? { template } : { template: coverLetterTemplate })
@@ -573,21 +698,109 @@ export const Generator: React.FC<GeneratorProps> = ({ userProfile, onShowPricing
                 <div className="flex-1 p-4 border border-slate-200 rounded-xl overflow-y-auto bg-slate-50">
                   <div 
                     ref={resultRef}
-                    className="prose prose-sm prose-slate max-w-none text-right" 
+                    className="resume-preview-container bg-white shadow-lg mx-auto max-w-[800px] min-h-[1000px]" 
                     dir="rtl"
                   >
-                    <ReactMarkdown>{editedContent}</ReactMarkdown>
+                    <div className={`resume-layout ${template === 'modern' || template === 'creative' ? 'sidebar-layout' : 'standard-layout'}`}>
+                      <div className="resume-sidebar">
+                        {photoUrl && (
+                          <div className="resume-photo-container">
+                            <img src={photoUrl} alt="" className="resume-photo" referrerPolicy="no-referrer" />
+                          </div>
+                        )}
+                        <div className="resume-header">
+                          <h1 className="resume-name">{userProfile.name}</h1>
+                          <div className="resume-title">{jobTitle}</div>
+                        </div>
+                        <div className="resume-contact">
+                          <div className="contact-item">📧 {userProfile.email}</div>
+                          {includePersonalLink && userProfile.username && (
+                            <div className="personal-link-box">
+                              <span className="personal-link-label">לינק אישי:</span>
+                              <span className="personal-link-url">{window.location.origin.replace('https://', '')}/u/{userProfile.username}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="resume-main">
+                        {!(template === 'modern' || template === 'creative') && (
+                          <div className="resume-header-standard">
+                            {photoUrl && (
+                              <div className="resume-photo-container">
+                                <img src={photoUrl} alt="" className="resume-photo" referrerPolicy="no-referrer" />
+                              </div>
+                            )}
+                            <h1 className="resume-name">{userProfile.name}</h1>
+                            <div className="resume-title">{jobTitle}</div>
+                            <div className="resume-contact-standard">
+                              <span>📧 {userProfile.email}</span>
+                              {includePersonalLink && userProfile.username && (
+                                <span>🔗 {window.location.origin.replace('https://', '')}/u/{userProfile.username}</span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                        <div className="resume-content-body prose prose-sm prose-slate max-w-none">
+                          <ReactMarkdown>{editedContent}</ReactMarkdown>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
           ) : (
-            <div 
-              ref={resultRef}
-              className="bg-slate-50 p-4 sm:p-6 rounded-xl prose prose-sm prose-slate max-w-none text-right" 
-              dir="rtl"
-            >
-              <ReactMarkdown>{result}</ReactMarkdown>
+            <div className="p-4 sm:p-8 bg-slate-200 rounded-2xl overflow-x-auto">
+              <div 
+                ref={resultRef}
+                className="resume-preview-container bg-white shadow-2xl mx-auto w-full max-w-[800px] min-h-[1000px] overflow-hidden" 
+                dir="rtl"
+              >
+                <div className={`resume-layout ${template === 'modern' || template === 'creative' ? 'sidebar-layout' : 'standard-layout'}`}>
+                  <div className="resume-sidebar">
+                    {photoUrl && (
+                      <div className="resume-photo-container">
+                        <img src={photoUrl} alt="" className="resume-photo" referrerPolicy="no-referrer" />
+                      </div>
+                    )}
+                    <div className="resume-header">
+                      <h1 className="resume-name">{userProfile.name}</h1>
+                      <div className="resume-title">{jobTitle}</div>
+                    </div>
+                    <div className="resume-contact">
+                      <div className="contact-item">📧 {userProfile.email}</div>
+                      {includePersonalLink && userProfile.username && (
+                        <div className="personal-link-box">
+                          <span className="personal-link-label">לינק אישי:</span>
+                          <span className="personal-link-url">{window.location.origin.replace('https://', '')}/u/{userProfile.username}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="resume-main">
+                    {!(template === 'modern' || template === 'creative') && (
+                      <div className="resume-header-standard">
+                        {photoUrl && (
+                          <div className="resume-photo-container">
+                            <img src={photoUrl} alt="" className="resume-photo" referrerPolicy="no-referrer" />
+                          </div>
+                        )}
+                        <h1 className="resume-name">{userProfile.name}</h1>
+                        <div className="resume-title">{jobTitle}</div>
+                        <div className="resume-contact-standard">
+                          <span>📧 {userProfile.email}</span>
+                          {includePersonalLink && userProfile.username && (
+                            <span>🔗 {window.location.origin.replace('https://', '')}/u/{userProfile.username}</span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    <div className="resume-content-body prose prose-sm prose-slate max-w-none">
+                      <ReactMarkdown>{result}</ReactMarkdown>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
         </div>

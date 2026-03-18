@@ -26,15 +26,34 @@ export default function App() {
         // Setup realtime listener for user profile
         const unsubscribeProfile = onSnapshot(userRef, async (docSnap) => {
           if (docSnap.exists()) {
-            setUserProfile(docSnap.data() as UserProfile);
-            setLoading(false);
+            const data = docSnap.data() as UserProfile;
+            if (!data.username) {
+              const defaultUsername = (currentUser.displayName || 'user')
+                .toLowerCase()
+                .trim()
+                .replace(/\s+/g, '-')
+                .replace(/[^a-z0-9-]/g, '') + '-' + Math.random().toString(36).substring(2, 7);
+
+              try {
+                const { updateDoc } = await import('firebase/firestore');
+                await updateDoc(userRef, { username: defaultUsername });
+                // The next snapshot will have the updated data
+              } catch (error) {
+                console.error("Error setting default username:", error);
+                setUserProfile(data);
+                setLoading(false);
+              }
+            } else {
+              setUserProfile(data);
+              setLoading(false);
+            }
           } else {
             // Create new user profile
             const defaultUsername = (currentUser.displayName || 'user')
               .toLowerCase()
               .trim()
               .replace(/\s+/g, '-')
-              .replace(/[^a-z0-9-]/g, '');
+              .replace(/[^a-z0-9-]/g, '') + '-' + Math.random().toString(36).substring(2, 7);
 
             const newUser: UserProfile = {
               uid: currentUser.uid,

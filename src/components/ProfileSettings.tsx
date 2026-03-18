@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { UserProfile } from '../types';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { doc, updateDoc, arrayUnion, arrayRemove, query, collection, where, getDocs, limit } from 'firebase/firestore';
-import { User, Mail, Link as LinkIcon, Image as ImageIcon, Plus, Trash2, Loader2, Check, ExternalLink } from 'lucide-react';
+import { User, Mail, Link as LinkIcon, Image as ImageIcon, Plus, Trash2, Loader2, Check, ExternalLink, Share2 } from 'lucide-react';
 
 interface ProfileSettingsProps {
   userProfile: UserProfile;
@@ -21,6 +21,12 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ userProfile })
   const [isAddingPhoto, setIsAddingPhoto] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  React.useEffect(() => {
+    if (userProfile.username) {
+      setUsername(userProfile.username);
+    }
+  }, [userProfile.username]);
 
   const handleSaveUsername = async () => {
     const cleanUsername = username.toLowerCase().trim().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
@@ -154,14 +160,27 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ userProfile })
                 <p className="text-xs font-bold text-indigo-900 mb-2">הלינק האישי שלך:</p>
                 <div className="flex items-center justify-between gap-2">
                   <code className="text-xs text-indigo-700 break-all">{publicProfileUrl}</code>
-                  <a 
-                    href={publicProfileUrl} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="p-2 text-indigo-600 hover:bg-indigo-100 rounded-lg transition-colors"
-                  >
-                    <ExternalLink className="w-4 h-4" />
-                  </a>
+                  <div className="flex gap-1">
+                    <button 
+                      onClick={() => {
+                        navigator.clipboard.writeText(publicProfileUrl);
+                        setMessage({ type: 'success', text: 'הלינק הועתק ללוח!' });
+                      }}
+                      className="p-2 text-indigo-600 hover:bg-indigo-100 rounded-lg transition-colors"
+                      title="העתק לינק"
+                    >
+                      <Share2 className="w-4 h-4" />
+                    </button>
+                    <a 
+                      href={publicProfileUrl} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="p-2 text-indigo-600 hover:bg-indigo-100 rounded-lg transition-colors"
+                      title="פתח לינק"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                    </a>
+                  </div>
                 </div>
               </div>
             )}
