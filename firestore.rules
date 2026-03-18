@@ -117,7 +117,7 @@ service cloud.firestore {
     // ===============================================================
 
     match /users/{userId} {
-      allow read: if request.auth != null && (request.auth.uid == userId || isAdmin());
+      allow read: if true;
       
       // Allow user to create their own profile. Default to 'free' plan and 3 credits.
       allow create: if isOwner(userId) && 
