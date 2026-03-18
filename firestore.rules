@@ -84,7 +84,7 @@ service cloud.firestore {
     }
 
     function isValidDocument(data) {
-      return hasOnlyAllowedFields(['id', 'userId', 'type', 'content', 'createdAt', 'template', 'photoUrl', 'slug', 'isPublic', 'includePersonalLink']) &&
+      return hasOnlyAllowedFields(['id', 'userId', 'type', 'content', 'createdAt', 'template', 'photoUrl', 'slug', 'isPublic', 'isProfilePrimary', 'includePersonalLink', 'jobTitle', 'userName', 'userEmail']) &&
              (!('id' in data) || (data.id is string && data.id.size() > 0 && data.id.size() < 100)) &&
              (!('userId' in data) || (data.userId is string && data.userId.size() > 0 && data.userId.size() < 100)) &&
              (!('type' in data) || data.type in ['resume', 'cover_letter']) &&
@@ -94,15 +94,20 @@ service cloud.firestore {
              (!('photoUrl' in data) || (data.photoUrl is string && data.photoUrl.size() < 2000000)) &&
              (!('slug' in data) || (data.slug is string && data.slug.size() < 100)) &&
              (!('isPublic' in data) || data.isPublic is bool) &&
-             (!('includePersonalLink' in data) || data.includePersonalLink is bool);
+             (!('isProfilePrimary' in data) || data.isProfilePrimary is bool) &&
+             (!('includePersonalLink' in data) || data.includePersonalLink is bool) &&
+             (!('jobTitle' in data) || (data.jobTitle is string && data.jobTitle.size() < 200)) &&
+             (!('userName' in data) || (data.userName is string && data.userName.size() < 200)) &&
+             (!('userEmail' in data) || (data.userEmail is string && data.userEmail.size() < 200));
     }
 
     function isValidSupportRequest(data) {
-      return hasOnlyAllowedFields(['id', 'userId', 'email', 'name', 'messages', 'status', 'createdAt']) &&
+      return hasOnlyAllowedFields(['id', 'userId', 'email', 'name', 'phone', 'messages', 'status', 'createdAt']) &&
              data.id is string && data.id.size() > 0 &&
              (!('userId' in data) || (data.userId is string && data.userId.size() < 100)) &&
              data.email is string && isValidEmail(data.email) &&
              data.name is string && data.name.size() > 0 &&
+             (!('phone' in data) || (data.phone is string && data.phone.size() < 50)) &&
              data.messages is list &&
              data.status in ['open', 'closed'] &&
              (data.createdAt is string || data.createdAt is timestamp);

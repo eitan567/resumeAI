@@ -21,5 +21,9 @@ export interface GeneratedDocument {
   photoUrl?: string;
   slug?: string;
   isPublic?: boolean;
+  isProfilePrimary?: boolean;
   includePersonalLink?: boolean;
+  jobTitle?: string;
+  userName?: string;
+  userEmail?: string;
 }

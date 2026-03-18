@@ -11,6 +11,9 @@
         "plan": { "type": "string", "enum": ["free", "pro"], "description": "The user's subscription plan" },
         "credits": { "type": "number", "description": "Number of remaining generations for free users" },
         "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" },
+        "proExpiresAt": { "type": "string", "format": "date-time", "description": "Timestamp when pro plan expires" },
+        "reminderSent": { "type": "boolean", "description": "Whether a renewal reminder has been sent" },
+        "role": { "type": "string", "enum": ["admin", "user"], "description": "User role" },
         "username": { "type": "string", "description": "Unique username for personal profile link" },
         "photos": { "type": "array", "items": { "type": "string" }, "description": "List of profile photo URLs" }
       },
@@ -30,7 +33,11 @@
         "photoUrl": { "type": "string", "description": "Optional URL for a profile photo" },
         "slug": { "type": "string", "description": "Optional unique slug for a public link" },
         "isPublic": { "type": "boolean", "description": "Whether the document is publicly accessible" },
-        "includePersonalLink": { "type": "boolean", "description": "Whether to include the personal profile link in the resume" }
+        "isProfilePrimary": { "type": "boolean", "description": "Whether this is the primary document for the public profile" },
+        "includePersonalLink": { "type": "boolean", "description": "Whether to include the personal profile link in the resume" },
+        "jobTitle": { "type": "string", "description": "The job title for the document" },
+        "userName": { "type": "string", "description": "The user's name at the time of generation" },
+        "userEmail": { "type": "string", "description": "The user's email at the time of generation" }
       },
       "required": ["id", "userId", "type", "content", "createdAt"]
     },
@@ -43,6 +50,7 @@
         "userId": { "type": "string", "description": "User ID (optional if guest)" },
         "email": { "type": "string", "format": "email", "description": "Contact email" },
         "name": { "type": "string", "description": "Contact name" },
+        "phone": { "type": "string", "description": "Contact phone number" },
         "messages": { "type": "array", "items": { "type": "object" }, "description": "Chat transcript" },
         "status": { "type": "string", "enum": ["open", "closed"], "description": "Request status" },
         "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" }

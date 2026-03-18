@@ -3,7 +3,8 @@ import { generateResume, generateCoverLetter } from '../services/ai';
 import { UserProfile } from '../types';
 import { auth, db } from '../firebase';
 import { doc, setDoc, updateDoc, increment } from 'firebase/firestore';
-import { Loader2, FileText, Send, Download } from 'lucide-react';
+import { Loader2, FileText, Send, Download, Sparkles, Wand2, ArrowRight, ArrowLeft, Check, AlertCircle, MessageSquare, User, Save } from 'lucide-react';
+import { ResumeTemplate } from './ResumeTemplate';
 import ReactMarkdown from 'react-markdown';
 import html2pdf from 'html2pdf.js';
 
@@ -354,12 +355,16 @@ export const Generator: React.FC<GeneratorProps> = ({ userProfile, onShowPricing
           await setDoc(doc(db, 'documents', docId), {
             id: docId,
             userId: userProfile.uid,
+            userName: userProfile.name,
+            userEmail: userProfile.email,
             type,
             content,
             createdAt: new Date().toISOString(),
             photoUrl: photoUrl || null,
             isPublic: true,
+            isProfilePrimary: false,
             includePersonalLink: includePersonalLink || false,
+            jobTitle: jobTitle,
             ...(type === 'resume' ? { template } : { template: coverLetterTemplate })
           });
       } catch (err) {
@@ -533,32 +538,72 @@ export const Generator: React.FC<GeneratorProps> = ({ userProfile, onShowPricing
         {type === 'resume' && (
           <div className="pt-2">
             <label className="block text-sm font-medium text-slate-700 mb-3">סגנון תבנית</label>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <button
-                type="button"
-                onClick={() => setTemplate('modern')}
-                className={`p-4 rounded-xl border text-right transition-all ${template === 'modern' ? 'border-indigo-600 bg-indigo-50 ring-1 ring-indigo-600' : 'border-slate-200 hover:border-indigo-300 bg-white'}`}
-              >
-                <div className="font-bold text-slate-900 mb-1">מודרני</div>
-                <div className="text-xs text-slate-500">נקי, מקצועי וברור. מתאים לרוב המשרות.</div>
-              </button>
-              <button
-                type="button"
-                onClick={() => setTemplate('creative')}
-                className={`p-4 rounded-xl border text-right transition-all ${template === 'creative' ? 'border-indigo-600 bg-indigo-50 ring-1 ring-indigo-600' : 'border-slate-200 hover:border-indigo-300 bg-white'}`}
-              >
-                <div className="font-bold text-slate-900 mb-1">יצירתי</div>
-                <div className="text-xs text-slate-500">דינמי ובולט. מעולה למקצועות העיצוב והשיווק.</div>
-              </button>
-              <button
-                type="button"
-                onClick={() => setTemplate('executive')}
-                className={`p-4 rounded-xl border text-right transition-all ${template === 'executive' ? 'border-indigo-600 bg-indigo-50 ring-1 ring-indigo-600' : 'border-slate-200 hover:border-indigo-300 bg-white'}`}
-              >
-                <div className="font-bold text-slate-900 mb-1">ניהולי</div>
-                <div className="text-xs text-slate-500">רשמי וממוקד הישגים. למשרות בכירות וניהול.</div>
-              </button>
-            </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setTemplate('modern')}
+                  className={`p-4 rounded-xl border text-right transition-all ${template === 'modern' ? 'border-indigo-600 bg-indigo-50 ring-1 ring-indigo-600' : 'border-slate-200 hover:border-indigo-300 bg-white'}`}
+                >
+                  <div className="font-bold text-slate-900 mb-1">מודרני</div>
+                  <div className="text-xs text-slate-500">נקי ומקצועי.</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTemplate('creative')}
+                  className={`p-4 rounded-xl border text-right transition-all ${template === 'creative' ? 'border-indigo-600 bg-indigo-50 ring-1 ring-indigo-600' : 'border-slate-200 hover:border-indigo-300 bg-white'}`}
+                >
+                  <div className="font-bold text-slate-900 mb-1">יצירתי</div>
+                  <div className="text-xs text-slate-500">דינמי ובולט.</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTemplate('executive')}
+                  className={`p-4 rounded-xl border text-right transition-all ${template === 'executive' ? 'border-indigo-600 bg-indigo-50 ring-1 ring-indigo-600' : 'border-slate-200 hover:border-indigo-300 bg-white'}`}
+                >
+                  <div className="font-bold text-slate-900 mb-1">ניהולי</div>
+                  <div className="text-xs text-slate-500">רשמי וממוקד.</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTemplate('geometric')}
+                  className={`p-4 rounded-xl border text-right transition-all ${template === 'geometric' ? 'border-indigo-600 bg-indigo-50 ring-1 ring-indigo-600' : 'border-slate-200 hover:border-indigo-300 bg-white'}`}
+                >
+                  <div className="font-bold text-slate-900 mb-1">גיאומטרי</div>
+                  <div className="text-xs text-slate-500">צבעוני ומודרני.</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTemplate('professional-sidebar')}
+                  className={`p-4 rounded-xl border text-right transition-all ${template === 'professional-sidebar' ? 'border-indigo-600 bg-indigo-50 ring-1 ring-indigo-600' : 'border-slate-200 hover:border-indigo-300 bg-white'}`}
+                >
+                  <div className="font-bold text-slate-900 mb-1">סיידבר מקצועי</div>
+                  <div className="text-xs text-slate-500">קלאסי עם דגש.</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTemplate('bordered-header')}
+                  className={`p-4 rounded-xl border text-right transition-all ${template === 'bordered-header' ? 'border-indigo-600 bg-indigo-50 ring-1 ring-indigo-600' : 'border-slate-200 hover:border-indigo-300 bg-white'}`}
+                >
+                  <div className="font-bold text-slate-900 mb-1">כותרת מודגשת</div>
+                  <div className="text-xs text-slate-500">סולידי ומרשים.</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTemplate('teal-accent')}
+                  className={`p-4 rounded-xl border text-right transition-all ${template === 'teal-accent' ? 'border-indigo-600 bg-indigo-50 ring-1 ring-indigo-600' : 'border-slate-200 hover:border-indigo-300 bg-white'}`}
+                >
+                  <div className="font-bold text-slate-900 mb-1">טורקיז אלגנטי</div>
+                  <div className="text-xs text-slate-500">רענן ומקצועי.</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTemplate('diagonal-header')}
+                  className={`p-4 rounded-xl border text-right transition-all ${template === 'diagonal-header' ? 'border-indigo-600 bg-indigo-50 ring-1 ring-indigo-600' : 'border-slate-200 hover:border-indigo-300 bg-white'}`}
+                >
+                  <div className="font-bold text-slate-900 mb-1">אלכסוני</div>
+                  <div className="text-xs text-slate-500">ייחודי ונועז.</div>
+                </button>
+              </div>
           </div>
         )}
 
@@ -698,53 +743,18 @@ export const Generator: React.FC<GeneratorProps> = ({ userProfile, onShowPricing
                 <div className="flex-1 p-4 border border-slate-200 rounded-xl overflow-y-auto bg-slate-50">
                   <div 
                     ref={resultRef}
-                    className="resume-preview-container bg-white shadow-lg mx-auto max-w-[800px] min-h-[1000px]" 
-                    dir="rtl"
+                    className="mx-auto max-w-[800px]" 
                   >
-                    <div className={`resume-layout ${template === 'modern' || template === 'creative' ? 'sidebar-layout' : 'standard-layout'}`}>
-                      <div className="resume-sidebar">
-                        {photoUrl && (
-                          <div className="resume-photo-container">
-                            <img src={photoUrl} alt="" className="resume-photo" referrerPolicy="no-referrer" />
-                          </div>
-                        )}
-                        <div className="resume-header">
-                          <h1 className="resume-name">{userProfile.name}</h1>
-                          <div className="resume-title">{jobTitle}</div>
-                        </div>
-                        <div className="resume-contact">
-                          <div className="contact-item">📧 {userProfile.email}</div>
-                          {includePersonalLink && userProfile.username && (
-                            <div className="personal-link-box">
-                              <span className="personal-link-label">לינק אישי:</span>
-                              <span className="personal-link-url">{window.location.origin.replace('https://', '')}/u/{userProfile.username}</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      <div className="resume-main">
-                        {!(template === 'modern' || template === 'creative') && (
-                          <div className="resume-header-standard">
-                            {photoUrl && (
-                              <div className="resume-photo-container">
-                                <img src={photoUrl} alt="" className="resume-photo" referrerPolicy="no-referrer" />
-                              </div>
-                            )}
-                            <h1 className="resume-name">{userProfile.name}</h1>
-                            <div className="resume-title">{jobTitle}</div>
-                            <div className="resume-contact-standard">
-                              <span>📧 {userProfile.email}</span>
-                              {includePersonalLink && userProfile.username && (
-                                <span>🔗 {window.location.origin.replace('https://', '')}/u/{userProfile.username}</span>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                        <div className="resume-content-body prose prose-sm prose-slate max-w-none">
-                          <ReactMarkdown>{editedContent}</ReactMarkdown>
-                        </div>
-                      </div>
-                    </div>
+                    <ResumeTemplate
+                      content={editedContent}
+                      template={template}
+                      name={userProfile.name}
+                      jobTitle={jobTitle}
+                      email={userProfile.email}
+                      photoUrl={photoUrl}
+                      personalLink={includePersonalLink && userProfile.username ? `${window.location.origin}/u/${userProfile.username}` : undefined}
+                      includePersonalLink={includePersonalLink}
+                    />
                   </div>
                 </div>
               </div>
@@ -753,53 +763,18 @@ export const Generator: React.FC<GeneratorProps> = ({ userProfile, onShowPricing
             <div className="p-4 sm:p-8 bg-slate-200 rounded-2xl overflow-x-auto">
               <div 
                 ref={resultRef}
-                className="resume-preview-container bg-white shadow-2xl mx-auto w-full max-w-[800px] min-h-[1000px] overflow-hidden" 
-                dir="rtl"
+                className="mx-auto w-full max-w-[800px]" 
               >
-                <div className={`resume-layout ${template === 'modern' || template === 'creative' ? 'sidebar-layout' : 'standard-layout'}`}>
-                  <div className="resume-sidebar">
-                    {photoUrl && (
-                      <div className="resume-photo-container">
-                        <img src={photoUrl} alt="" className="resume-photo" referrerPolicy="no-referrer" />
-                      </div>
-                    )}
-                    <div className="resume-header">
-                      <h1 className="resume-name">{userProfile.name}</h1>
-                      <div className="resume-title">{jobTitle}</div>
-                    </div>
-                    <div className="resume-contact">
-                      <div className="contact-item">📧 {userProfile.email}</div>
-                      {includePersonalLink && userProfile.username && (
-                        <div className="personal-link-box">
-                          <span className="personal-link-label">לינק אישי:</span>
-                          <span className="personal-link-url">{window.location.origin.replace('https://', '')}/u/{userProfile.username}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="resume-main">
-                    {!(template === 'modern' || template === 'creative') && (
-                      <div className="resume-header-standard">
-                        {photoUrl && (
-                          <div className="resume-photo-container">
-                            <img src={photoUrl} alt="" className="resume-photo" referrerPolicy="no-referrer" />
-                          </div>
-                        )}
-                        <h1 className="resume-name">{userProfile.name}</h1>
-                        <div className="resume-title">{jobTitle}</div>
-                        <div className="resume-contact-standard">
-                          <span>📧 {userProfile.email}</span>
-                          {includePersonalLink && userProfile.username && (
-                            <span>🔗 {window.location.origin.replace('https://', '')}/u/{userProfile.username}</span>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                    <div className="resume-content-body prose prose-sm prose-slate max-w-none">
-                      <ReactMarkdown>{result}</ReactMarkdown>
-                    </div>
-                  </div>
-                </div>
+                <ResumeTemplate
+                  content={result}
+                  template={template}
+                  name={userProfile.name}
+                  jobTitle={jobTitle}
+                  email={userProfile.email}
+                  photoUrl={photoUrl}
+                  personalLink={includePersonalLink && userProfile.username ? `${window.location.origin}/u/${userProfile.username}` : undefined}
+                  includePersonalLink={includePersonalLink}
+                />
               </div>
             </div>
           )}

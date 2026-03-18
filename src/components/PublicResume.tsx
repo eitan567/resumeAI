@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import { db } from '../firebase';
 import { collection, query, where, getDocs, limit } from 'firebase/firestore';
 import { GeneratedDocument } from '../types';
-import ReactMarkdown from 'react-markdown';
+import { ResumeTemplate } from './ResumeTemplate';
 import { Loader2, AlertCircle, Download, Share2, Sparkles } from 'lucide-react';
 
 export const PublicResume: React.FC = () => {
@@ -125,37 +125,16 @@ export const PublicResume: React.FC = () => {
 
         {/* Resume Content */}
         <div className="bg-white shadow-2xl rounded-sm overflow-hidden border border-slate-100 relative">
-          {/* Design Accents based on template */}
-          {doc.template === 'creative' && (
-            <div className="absolute top-0 left-0 w-full h-4 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500" />
-          )}
-          {doc.template === 'startup' && (
-            <div className="absolute top-0 left-0 w-full h-4 bg-emerald-500" />
-          )}
-
-          <div className="p-8 sm:p-16">
-            <div className="flex flex-col md:flex-row gap-10 items-center md:items-start mb-12 border-b border-slate-100 pb-12">
-              {doc.photoUrl && (
-                <div className="shrink-0 relative">
-                  <div className="w-44 h-44 rounded-full overflow-hidden shadow-2xl border-4 border-white ring-8 ring-slate-50 relative z-10">
-                    <img 
-                      src={doc.photoUrl} 
-                      alt="Profile" 
-                      className="w-full h-full object-cover transform hover:scale-105 transition-transform duration-500"
-                      referrerPolicy="no-referrer"
-                    />
-                  </div>
-                  {/* Decorative background element */}
-                  <div className="absolute -top-2 -right-2 w-44 h-44 rounded-full bg-indigo-50 -z-0" />
-                </div>
-              )}
-              <div className="flex-1 text-center md:text-right w-full">
-                <div className={`prose max-w-none ${getTemplateStyles(doc.template)}`}>
-                  <ReactMarkdown>{body}</ReactMarkdown>
-                </div>
-              </div>
-            </div>
-          </div>
+          <ResumeTemplate
+            content={body}
+            template={doc.template || 'modern'}
+            name={doc.userName || 'משתמש'}
+            jobTitle={doc.jobTitle}
+            email={doc.userEmail || ''}
+            photoUrl={doc.photoUrl}
+            personalLink={window.location.href}
+            includePersonalLink={true}
+          />
         </div>
 
         {/* Footer */}

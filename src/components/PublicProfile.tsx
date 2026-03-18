@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { db } from '../firebase';
 import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
 import { GeneratedDocument, UserProfile } from '../types';
+import { ResumeTemplate } from './ResumeTemplate';
 import ReactMarkdown from 'react-markdown';
 import { Loader2, FileText, Download, Share2, ExternalLink, User, Mail, Calendar, MessageSquare, Sparkles } from 'lucide-react';
 
@@ -35,7 +36,7 @@ export const PublicProfile: React.FC = () => {
         const userData = userSnap.docs[0].data() as UserProfile;
         setUser(userData);
 
-        // 2. Find latest resume
+        // 2. Find resume (prioritize isProfilePrimary)
         const resumeQuery = query(
           collection(db, 'documents'),
           where('userId', '==', userData.uid),
@@ -45,10 +46,11 @@ export const PublicProfile: React.FC = () => {
         const resumeSnap = await getDocs(resumeQuery);
         if (!resumeSnap.empty) {
           const resumes = resumeSnap.docs.map(d => d.data() as GeneratedDocument);
-          setLatestResume(resumes.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0]);
+          const primaryResume = resumes.find(r => r.isProfilePrimary);
+          setLatestResume(primaryResume || resumes.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0]);
         }
 
-        // 3. Find latest cover letter
+        // 3. Find cover letter (prioritize isProfilePrimary)
         const clQuery = query(
           collection(db, 'documents'),
           where('userId', '==', userData.uid),
@@ -58,7 +60,8 @@ export const PublicProfile: React.FC = () => {
         const clSnap = await getDocs(clQuery);
         if (!clSnap.empty) {
           const cls = clSnap.docs.map(d => d.data() as GeneratedDocument);
-          setLatestCoverLetter(cls.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0]);
+          const primaryCl = cls.find(c => c.isProfilePrimary);
+          setLatestCoverLetter(primaryCl || cls.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0]);
         }
 
       } catch (err) {
@@ -190,8 +193,17 @@ export const PublicProfile: React.FC = () => {
                   </button>
                 </div>
               </div>
-              <div className="p-8 sm:p-12 prose prose-slate max-w-none text-right" dir="rtl">
-                <ReactMarkdown>{latestResume.content}</ReactMarkdown>
+              <div className="overflow-hidden">
+                <ResumeTemplate
+                  content={latestResume.content}
+                  template={latestResume.template || 'modern'}
+                  name={user.name}
+                  jobTitle={latestResume.jobTitle}
+                  email={user.email}
+                  photoUrl={latestResume.photoUrl}
+                  personalLink={window.location.href}
+                  includePersonalLink={true}
+                />
               </div>
             </div>
           ) : (

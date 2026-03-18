@@ -5,9 +5,10 @@ import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, incremen
 import { Generator } from './Generator';
 import { Pricing } from './Pricing';
 import { ProfileSettings } from './ProfileSettings';
-import { LogOut, Crown, FileText, Clock, Sparkles, Menu, X, Download, Loader2, Palette, ArrowUp, Share2, User as UserIcon, Settings } from 'lucide-react';
-import ReactMarkdown from 'react-markdown';
+import { LogOut, Crown, FileText, Clock, Sparkles, Menu, X, Download, Loader2, Palette, ArrowUp, Share2, User as UserIcon, Settings, Globe, GlobeLock, Check } from 'lucide-react';
+import { ResumeTemplate } from './ResumeTemplate';
 import { rewriteDocument } from '../services/ai';
+import { writeBatch } from 'firebase/firestore';
 
 enum OperationType {
   CREATE = 'create',
@@ -75,12 +76,53 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
   const [isChangingTemplate, setIsChangingTemplate] = useState(false);
   const [showTemplateSelector, setShowTemplateSelector] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
   
   const modalContentRef = useRef<HTMLDivElement>(null);
   const mainScrollRef = useRef<HTMLDivElement>(null);
+
+  const handleTogglePublish = async (docToToggle: GeneratedDocument) => {
+    setIsPublishing(true);
+    try {
+      const batch = writeBatch(db);
+      const isCurrentlyPublished = docToToggle.isProfilePrimary;
+      
+      if (isCurrentlyPublished) {
+        // Unpublish
+        batch.update(doc(db, 'documents', docToToggle.id), { 
+          isProfilePrimary: false 
+        });
+        if (selectedDoc?.id === docToToggle.id) {
+          setSelectedDoc({ ...selectedDoc, isProfilePrimary: false });
+        }
+      } else {
+        // 1. Unpublish all other documents of the same type for this user
+        const otherDocs = documents.filter(d => d.type === docToToggle.type && d.id !== docToToggle.id && d.isProfilePrimary);
+        otherDocs.forEach(d => {
+          batch.update(doc(db, 'documents', d.id), { isProfilePrimary: false });
+        });
+
+        // 2. Set this document as primary and ensure it's public
+        batch.update(doc(db, 'documents', docToToggle.id), { 
+          isProfilePrimary: true,
+          isPublic: true 
+        });
+        if (selectedDoc?.id === docToToggle.id) {
+          setSelectedDoc({ ...selectedDoc, isProfilePrimary: true, isPublic: true });
+        }
+      }
+
+      await batch.commit();
+    } catch (err) {
+      console.error(err);
+      setPdfError('אירעה שגיאה בעדכון הפרסום.');
+    } finally {
+      setIsPublishing(false);
+    }
+  };
 
   const handleScroll = () => {
     if (mainScrollRef.current) {
@@ -261,8 +303,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile }) => {
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const docs: GeneratedDocument[] = [];
-      snapshot.forEach((doc) => {
-        docs.push(doc.data() as GeneratedDocument);
+      snapshot.forEach((docSnap) => {
+        docs.push({ id: docSnap.id, ...docSnap.data() } as GeneratedDocument);
       });
       // Sort in memory
       setDocuments(docs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
@@ -444,41 +486,71 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile }) => {
                       <p className="text-slate-500 text-sm text-center py-8">עדיין לא יצרת מסמכים. התחל עכשיו!</p>
                     ) : (
                       documents.map((doc) => (
-                        <button
+                        <div
                           key={doc.id}
-                          onClick={() => setSelectedDoc(doc)}
-                          className="w-full text-right p-4 rounded-xl border border-slate-100 hover:border-indigo-200 hover:bg-indigo-50 transition-all group"
+                          className="w-full text-right p-4 rounded-xl border border-slate-100 hover:border-indigo-200 hover:bg-indigo-50 transition-all group relative"
                         >
-                          <div className="flex items-center gap-3 mb-2">
-                            <FileText className={`w-5 h-5 shrink-0 ${doc.type === 'resume' ? 'text-blue-500' : 'text-emerald-500'}`} />
-                            <span className="font-medium text-slate-900 group-hover:text-indigo-700 truncate">
-                              {doc.type === 'resume' ? 'קורות חיים' : 'מכתב מקדים'}
-                            </span>
-                            {doc.isPublic && doc.slug && (
-                              <div className="bg-emerald-100 text-emerald-700 p-1 rounded-full" title="ציבורי">
-                                <Share2 className="w-3 h-3" />
-                              </div>
-                            )}
-                            {doc.template && (
-                              <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full whitespace-nowrap">
-                                {doc.template === 'modern' ? 'מודרני' : 
-                                 doc.template === 'creative' ? 'יצירתי' : 
-                                 doc.template === 'executive' ? 'ניהולי' : 
-                                 doc.template === 'formal' ? 'רשמי' : 
-                                 doc.template === 'startup' ? 'סטארטאפ' : doc.template}
+                          <div className="flex items-center justify-between mb-2">
+                            <div 
+                              className="flex items-center gap-3 cursor-pointer flex-1"
+                              onClick={() => setSelectedDoc(doc)}
+                            >
+                              <FileText className={`w-5 h-5 shrink-0 ${doc.type === 'resume' ? 'text-blue-500' : 'text-emerald-500'}`} />
+                              <span className="font-medium text-slate-900 group-hover:text-indigo-700 truncate">
+                                {doc.type === 'resume' ? 'קורות חיים' : 'מכתב מקדים'}
                               </span>
-                            )}
+                              {doc.isProfilePrimary && (
+                                <div className="bg-indigo-600 text-white p-1 rounded-full animate-pulse" title="מוצג בדף האישי">
+                                  <Globe className="w-3 h-3" />
+                                </div>
+                              )}
+                            </div>
+                            
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleTogglePublish(doc);
+                              }}
+                              disabled={isPublishing}
+                              className={`p-2 rounded-lg transition-all ${doc.isProfilePrimary ? 'text-indigo-600 bg-indigo-50 ring-1 ring-indigo-200' : 'text-slate-400 hover:text-indigo-600 hover:bg-indigo-50'}`}
+                              title={doc.isProfilePrimary ? 'הסר מהדף האישי' : 'פרסם לדף האישי'}
+                            >
+                              {isPublishing ? <Loader2 className="w-4 h-4 animate-spin" /> : doc.isProfilePrimary ? <Globe className="w-4 h-4" /> : <GlobeLock className="w-4 h-4" />}
+                            </button>
                           </div>
-                          <div className="text-xs text-slate-400">
-                            {new Date(doc.createdAt).toLocaleDateString('he-IL', {
-                              year: 'numeric',
-                              month: 'long',
-                              day: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })}
+                          
+                          <div 
+                            className="cursor-pointer"
+                            onClick={() => setSelectedDoc(doc)}
+                          >
+                            <div className="flex items-center gap-2 mb-2">
+                              {doc.template && (
+                                <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full whitespace-nowrap">
+                                  {doc.template === 'modern' ? 'מודרני' : 
+                                   doc.template === 'creative' ? 'יצירתי' : 
+                                   doc.template === 'executive' ? 'ניהולי' : 
+                                   doc.template === 'formal' ? 'רשמי' : 
+                                   doc.template === 'startup' ? 'סטארטאפ' : doc.template}
+                                </span>
+                              )}
+                              {doc.isPublic && doc.slug && !doc.isProfilePrimary && (
+                                <div className="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full text-[10px] flex items-center gap-1">
+                                  <Share2 className="w-2.5 h-2.5" />
+                                  <span>ציבורי</span>
+                                </div>
+                              )}
+                            </div>
+                            <div className="text-xs text-slate-400">
+                              {new Date(doc.createdAt).toLocaleDateString('he-IL', {
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </div>
                           </div>
-                        </button>
+                        </div>
                       ))
                     )}
                   </div>
@@ -530,6 +602,27 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile }) => {
                   </>
                 ) : (
                   <>
+                    <button
+                      onClick={() => handleTogglePublish(selectedDoc)}
+                      disabled={isPublishing}
+                      className={`flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                        selectedDoc.isProfilePrimary 
+                          ? 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-md shadow-indigo-200' 
+                          : 'bg-slate-100 text-slate-600 hover:bg-indigo-50 hover:text-indigo-700'
+                      }`}
+                      title={selectedDoc.isProfilePrimary ? 'מוצג בדף האישי' : 'פרסם לדף האישי'}
+                    >
+                      {isPublishing ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : selectedDoc.isProfilePrimary ? (
+                        <Globe className="w-4 h-4" />
+                      ) : (
+                        <GlobeLock className="w-4 h-4" />
+                      )}
+                      <span className="hidden sm:inline">
+                        {selectedDoc.isProfilePrimary ? 'פורסם' : 'פרסם'}
+                      </span>
+                    </button>
                     <div className="relative">
                       <button
                         onClick={() => setShowTemplateSelector(!showTemplateSelector)}
@@ -541,20 +634,70 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile }) => {
                       </button>
                       
                       {showTemplateSelector && (
-                        <div className="absolute top-full left-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-100 p-2 z-50">
-                          <div className="text-xs font-bold text-slate-400 mb-2 px-2">בחר תבנית חדשה:</div>
+                        <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-xl shadow-xl border border-slate-100 p-2 z-50 max-h-[400px] overflow-y-auto custom-scrollbar">
+                          <div className="text-xs font-bold text-slate-400 mb-2 px-2 sticky top-0 bg-white py-1">בחר תבנית חדשה:</div>
                           {selectedDoc.type === 'resume' ? (
-                            <>
-                              <button onClick={() => handleChangeTemplate('modern')} className="w-full text-right px-3 py-2 text-sm hover:bg-slate-50 rounded-lg text-slate-700">מודרני</button>
-                              <button onClick={() => handleChangeTemplate('creative')} className="w-full text-right px-3 py-2 text-sm hover:bg-slate-50 rounded-lg text-slate-700">יצירתי</button>
-                              <button onClick={() => handleChangeTemplate('executive')} className="w-full text-right px-3 py-2 text-sm hover:bg-slate-50 rounded-lg text-slate-700">ניהולי</button>
-                            </>
+                            <div className="grid grid-cols-1 gap-1">
+                              <button onClick={() => handleChangeTemplate('modern')} className="w-full text-right px-3 py-2 text-sm hover:bg-slate-50 rounded-lg text-slate-700 flex items-center justify-between">
+                                <span>מודרני</span>
+                                {selectedDoc.template === 'modern' && <Check className="w-4 h-4 text-indigo-600" />}
+                              </button>
+                              <button onClick={() => handleChangeTemplate('creative')} className="w-full text-right px-3 py-2 text-sm hover:bg-slate-50 rounded-lg text-slate-700 flex items-center justify-between">
+                                <span>יצירתי</span>
+                                {selectedDoc.template === 'creative' && <Check className="w-4 h-4 text-indigo-600" />}
+                              </button>
+                              <button onClick={() => handleChangeTemplate('executive')} className="w-full text-right px-3 py-2 text-sm hover:bg-slate-50 rounded-lg text-slate-700 flex items-center justify-between">
+                                <span>ניהולי</span>
+                                {selectedDoc.template === 'executive' && <Check className="w-4 h-4 text-indigo-600" />}
+                              </button>
+                              <button onClick={() => handleChangeTemplate('geometric')} className="w-full text-right px-3 py-2 text-sm hover:bg-slate-50 rounded-lg text-slate-700 flex items-center justify-between">
+                                <span>גיאומטרי</span>
+                                {selectedDoc.template === 'geometric' && <Check className="w-4 h-4 text-indigo-600" />}
+                              </button>
+                              <button onClick={() => handleChangeTemplate('professional-sidebar')} className="w-full text-right px-3 py-2 text-sm hover:bg-slate-50 rounded-lg text-slate-700 flex items-center justify-between">
+                                <span>סיידבר מקצועי</span>
+                                {selectedDoc.template === 'professional-sidebar' && <Check className="w-4 h-4 text-indigo-600" />}
+                              </button>
+                              <button onClick={() => handleChangeTemplate('bordered-header')} className="w-full text-right px-3 py-2 text-sm hover:bg-slate-50 rounded-lg text-slate-700 flex items-center justify-between">
+                                <span>כותרת מודגשת</span>
+                                {selectedDoc.template === 'bordered-header' && <Check className="w-4 h-4 text-indigo-600" />}
+                              </button>
+                              <button onClick={() => handleChangeTemplate('teal-accent')} className="w-full text-right px-3 py-2 text-sm hover:bg-slate-50 rounded-lg text-slate-700 flex items-center justify-between">
+                                <span>טורקיז אלגנטי</span>
+                                {selectedDoc.template === 'teal-accent' && <Check className="w-4 h-4 text-indigo-600" />}
+                              </button>
+                              <button onClick={() => handleChangeTemplate('diagonal-header')} className="w-full text-right px-3 py-2 text-sm hover:bg-slate-50 rounded-lg text-slate-700 flex items-center justify-between">
+                                <span>אלכסוני</span>
+                                {selectedDoc.template === 'diagonal-header' && <Check className="w-4 h-4 text-indigo-600" />}
+                              </button>
+                              <button onClick={() => handleChangeTemplate('simple-split')} className="w-full text-right px-3 py-2 text-sm hover:bg-slate-50 rounded-lg text-slate-700 flex items-center justify-between">
+                                <span>טורים מפוצלים</span>
+                                {selectedDoc.template === 'simple-split' && <Check className="w-4 h-4 text-indigo-600" />}
+                              </button>
+                              <button onClick={() => handleChangeTemplate('orange-accent')} className="w-full text-right px-3 py-2 text-sm hover:bg-slate-50 rounded-lg text-slate-700 flex items-center justify-between">
+                                <span>כתום מודגש</span>
+                                {selectedDoc.template === 'orange-accent' && <Check className="w-4 h-4 text-indigo-600" />}
+                              </button>
+                              <button onClick={() => handleChangeTemplate('horizontal-lines')} className="w-full text-right px-3 py-2 text-sm hover:bg-slate-50 rounded-lg text-slate-700 flex items-center justify-between">
+                                <span>קווים אופקיים</span>
+                                {selectedDoc.template === 'horizontal-lines' && <Check className="w-4 h-4 text-indigo-600" />}
+                              </button>
+                            </div>
                           ) : (
-                            <>
-                              <button onClick={() => handleChangeTemplate('formal')} className="w-full text-right px-3 py-2 text-sm hover:bg-slate-50 rounded-lg text-slate-700">רשמי</button>
-                              <button onClick={() => handleChangeTemplate('startup')} className="w-full text-right px-3 py-2 text-sm hover:bg-slate-50 rounded-lg text-slate-700">סטארטאפ</button>
-                              <button onClick={() => handleChangeTemplate('creative')} className="w-full text-right px-3 py-2 text-sm hover:bg-slate-50 rounded-lg text-slate-700">יצירתי</button>
-                            </>
+                            <div className="grid grid-cols-1 gap-1">
+                              <button onClick={() => handleChangeTemplate('formal')} className="w-full text-right px-3 py-2 text-sm hover:bg-slate-50 rounded-lg text-slate-700 flex items-center justify-between">
+                                <span>רשמי</span>
+                                {selectedDoc.template === 'formal' && <Check className="w-4 h-4 text-indigo-600" />}
+                              </button>
+                              <button onClick={() => handleChangeTemplate('startup')} className="w-full text-right px-3 py-2 text-sm hover:bg-slate-50 rounded-lg text-slate-700 flex items-center justify-between">
+                                <span>סטארטאפ</span>
+                                {selectedDoc.template === 'startup' && <Check className="w-4 h-4 text-indigo-600" />}
+                              </button>
+                              <button onClick={() => handleChangeTemplate('creative')} className="w-full text-right px-3 py-2 text-sm hover:bg-slate-50 rounded-lg text-slate-700 flex items-center justify-between">
+                                <span>יצירתי</span>
+                                {selectedDoc.template === 'creative' && <Check className="w-4 h-4 text-indigo-600" />}
+                              </button>
+                            </div>
                           )}
                         </div>
                       )}
@@ -632,25 +775,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile }) => {
                     <div className="flex-1 p-8 border border-slate-200 rounded-2xl overflow-y-auto bg-slate-100/50 shadow-inner">
                       <div 
                         ref={modalContentRef}
-                        className={`prose max-w-none text-right bg-white p-8 sm:p-12 shadow-lg rounded-sm min-h-full ${getTemplateStyles(selectedDoc.template)}`} 
-                        dir="rtl"
+                        className="mx-auto max-w-[800px]"
                       >
-                        {selectedDoc.photoUrl && (
-                          <div className="flex justify-center mb-8">
-                            <div className="relative">
-                              <div className="w-24 h-24 rounded-full overflow-hidden shadow-xl border-2 border-white ring-4 ring-slate-50 relative z-10">
-                                <img 
-                                  src={selectedDoc.photoUrl} 
-                                  alt="Profile" 
-                                  className="w-full h-full object-cover"
-                                  referrerPolicy="no-referrer"
-                                />
-                              </div>
-                              <div className="absolute -top-1 -right-1 w-24 h-24 rounded-full bg-indigo-50 -z-0" />
-                            </div>
-                          </div>
-                        )}
-                        <ReactMarkdown>{editedContent}</ReactMarkdown>
+                        <ResumeTemplate
+                          content={editedContent}
+                          template={selectedDoc.template || 'modern'}
+                          name={userProfile.name}
+                          jobTitle={selectedDoc.jobTitle}
+                          email={userProfile.email}
+                          photoUrl={selectedDoc.photoUrl}
+                          personalLink={selectedDoc.isPublic && userProfile.username ? `${window.location.origin}/u/${userProfile.username}` : undefined}
+                          includePersonalLink={selectedDoc.includePersonalLink}
+                        />
                       </div>
                     </div>
                   </div>
@@ -659,26 +795,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile }) => {
                 <div className="bg-slate-100/50 p-4 sm:p-10 rounded-2xl shadow-inner">
                   <div 
                     ref={modalContentRef}
-                    className={`prose max-w-none text-right bg-white p-8 sm:p-16 shadow-xl rounded-sm mx-auto ${getTemplateStyles(selectedDoc.template)}`} 
-                    dir="rtl"
-                    style={{ maxWidth: '1000px' }}
+                    className="mx-auto max-w-[800px]"
                   >
-                    {selectedDoc.photoUrl && (
-                      <div className="flex justify-center mb-10">
-                        <div className="relative">
-                          <div className="w-32 h-32 rounded-full overflow-hidden shadow-2xl border-4 border-white ring-8 ring-slate-50 relative z-10">
-                            <img 
-                              src={selectedDoc.photoUrl} 
-                              alt="Profile" 
-                              className="w-full h-full object-cover"
-                              referrerPolicy="no-referrer"
-                            />
-                          </div>
-                          <div className="absolute -top-1 -right-1 w-32 h-32 rounded-full bg-indigo-50 -z-0" />
-                        </div>
-                      </div>
-                    )}
-                    <ReactMarkdown>{parseContent(selectedDoc.content).body}</ReactMarkdown>
+                    <ResumeTemplate
+                      content={parseContent(selectedDoc.content).body}
+                      template={selectedDoc.template || 'modern'}
+                      name={userProfile.name}
+                      jobTitle={selectedDoc.jobTitle}
+                      email={userProfile.email}
+                      photoUrl={selectedDoc.photoUrl}
+                      personalLink={selectedDoc.isPublic && userProfile.username ? `${window.location.origin}/u/${userProfile.username}` : undefined}
+                      includePersonalLink={selectedDoc.includePersonalLink}
+                    />
                   </div>
                 </div>
               )}
