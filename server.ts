@@ -3,7 +3,7 @@ import { createServer as createViteServer } from "vite";
 import path from "path";
 import cron from "node-cron";
 import nodemailer from "nodemailer";
-import { initializeApp, applicationDefault } from "firebase-admin/app";
+import { initializeApp, applicationDefault, getApps } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 import fs from "fs";
 
@@ -17,12 +17,89 @@ async function startServer() {
     const configPath = path.join(process.cwd(), "firebase-applet-config.json");
     if (fs.existsSync(configPath)) {
       const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
-      const adminApp = initializeApp({
-        credential: applicationDefault(),
-        projectId: config.projectId,
-      });
-      db = getFirestore(adminApp, config.firestoreDatabaseId);
-      console.log("Firebase Admin initialized with database:", config.firestoreDatabaseId);
+      fs.writeFileSync("startup-test.log", `Using Project ID: ${config.projectId}, Database ID: ${config.firestoreDatabaseId}\n`);
+      
+      if (getApps().length === 0) {
+        initializeApp({
+          credential: applicationDefault(),
+          projectId: config.projectId,
+        });
+      }
+      
+      // Try the named database from config
+      const namedDb = getFirestore(config.firestoreDatabaseId);
+      db = namedDb;
+      console.log(`Firebase Admin initialized for project: ${config.projectId}, database: ${config.firestoreDatabaseId}`);
+      
+      // Startup test query to verify permissions and identify the correct database
+      namedDb.collection("users").limit(1).get()
+        .then(snap => {
+          console.log(`Startup test query successful on database ${config.firestoreDatabaseId}. Found ${snap.size} users.`);
+          fs.writeFileSync("startup-test.log", `SUCCESS: Found ${snap.size} users on ${config.firestoreDatabaseId}\n`);
+        })
+        .catch(async (err: any) => {
+          console.error(`Startup test query failed on database ${config.firestoreDatabaseId}:`, err.message);
+          fs.appendFileSync("startup-test.log", `FAILED: ${err.message} on ${config.firestoreDatabaseId}\n`);
+          
+          console.log("Attempting a test write...");
+          try {
+            await namedDb.collection("test_connection").doc("startup").set({ timestamp: new Date().toISOString() });
+            console.log("Test write successful!");
+            fs.appendFileSync("startup-test.log", "SUCCESS: Test write worked!\n");
+          } catch (writeErr: any) {
+            console.error("Test write failed:", writeErr.message);
+            fs.appendFileSync("startup-test.log", `FAILED: Test write ${writeErr.message}\n`);
+          }
+
+          console.log("Attempting collectionGroup test...");
+          try {
+            const groupSnap = await namedDb.collectionGroup("users").limit(1).get();
+            console.log(`CollectionGroup test successful on ${config.firestoreDatabaseId}. Found ${groupSnap.size} docs.`);
+            fs.appendFileSync("startup-test.log", `SUCCESS: CollectionGroup found ${groupSnap.size} docs on ${config.firestoreDatabaseId}\n`);
+          } catch (groupErr: any) {
+            console.error(`CollectionGroup test failed on ${config.firestoreDatabaseId}:`, groupErr.message);
+            fs.appendFileSync("startup-test.log", `FAILED: CollectionGroup ${groupErr.message} on ${config.firestoreDatabaseId}\n`);
+          }
+
+          console.log("Attempting to fallback to (default) database of the same project...");
+          const defaultDb = getFirestore(); // This uses the default app initialized above
+          try {
+            const snap = await defaultDb.collection("users").limit(1).get();
+            console.log(`Startup test successful on (default) database of ${config.projectId}. Found ${snap.size} users. Switching to (default).`);
+            db = defaultDb;
+            fs.appendFileSync("startup-test.log", `SUCCESS: Found ${snap.size} users on (default) database of ${config.projectId}\n`);
+          } catch (err2: any) {
+            console.error(`Startup test failed on (default) database of ${config.projectId} too:`, err2.message);
+            fs.appendFileSync("startup-test.log", `FAILED: ${err2.message} on (default) database of ${config.projectId}\n`);
+          }
+
+          console.log("Attempting auto-discovery (no projectId in initializeApp)...");
+          try {
+            if (getApps().find(app => app.name === "auto")) {
+              const autoApp = getApps().find(app => app.name === "auto")!;
+              const autoDb = getFirestore(autoApp);
+              const snap = await autoDb.collection("users").limit(1).get();
+              console.log(`Auto-discovery successful! Found ${snap.size} users.`);
+              db = autoDb;
+              fs.appendFileSync("startup-test.log", `SUCCESS: Auto-discovery worked! Found ${snap.size} users.\n`);
+            } else {
+              const autoApp = initializeApp({}, "auto");
+              const autoDb = getFirestore(autoApp);
+              const snap = await autoDb.collection("users").limit(1).get();
+              console.log(`Auto-discovery successful! Found ${snap.size} users.`);
+              db = autoDb;
+              fs.appendFileSync("startup-test.log", `SUCCESS: Auto-discovery worked! Found ${snap.size} users.\n`);
+            }
+          } catch (autoErr: any) {
+            console.error("Auto-discovery failed:", autoErr.message);
+            fs.appendFileSync("startup-test.log", `FAILED: Auto-discovery ${autoErr.message}\n`);
+          }
+        });
+
+      // List collections for debugging
+      db.listCollections()
+        .then(cols => console.log("Available collections:", cols.map(c => c.id)))
+        .catch(err => console.error("Failed to list collections:", err.message));
     }
   } catch (err) {
     console.error("Failed to initialize Firebase Admin:", err);
@@ -193,6 +270,53 @@ async function startServer() {
     } catch (err) {
       console.error("Error sending client-triggered reminder:", err);
       res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Debug endpoint to trigger cron job logic
+  app.get("/api/debug/cron", async (req, res) => {
+    console.log("Manual trigger of expiration check...");
+    if (!db) {
+      return res.status(500).json({ error: "Firestore not initialized" });
+    }
+
+    try {
+      const now = new Date();
+      const threeDaysFromNow = new Date();
+      threeDaysFromNow.setDate(now.getDate() + 3);
+
+      console.log(`Checking for expirations before: ${threeDaysFromNow.toISOString()}`);
+
+      const usersRef = db.collection("users");
+      
+      // Try a simple get first to check permissions
+      try {
+        const testSnap = await usersRef.limit(1).get();
+        console.log(`Simple get successful, found ${testSnap.size} docs`);
+      } catch (err: any) {
+        console.error("Simple get failed in debug endpoint:", err.message);
+        return res.status(403).json({ error: "Permission denied on simple get", details: err.message });
+      }
+
+      const snapshot = await usersRef
+        .where("plan", "==", "pro")
+        .where("reminderSent", "==", false)
+        .where("proExpiresAt", "<=", threeDaysFromNow.toISOString())
+        .get();
+
+      const results = [];
+      for (const doc of snapshot.docs) {
+        results.push({ id: doc.id, ...doc.data() });
+      }
+
+      res.json({ 
+        message: "Check completed", 
+        found: snapshot.size,
+        results 
+      });
+    } catch (error: any) {
+      console.error("Error in debug cron:", error);
+      res.status(500).json({ error: error.message, stack: error.stack });
     }
   });
 
