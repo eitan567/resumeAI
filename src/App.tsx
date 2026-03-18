@@ -36,11 +36,11 @@ interface FirestoreErrorInfo {
   }
 }
 
-function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null, currentUid?: string) {
   const errInfo: FirestoreErrorInfo = {
     error: error instanceof Error ? error.message : String(error),
     authInfo: {
-      userId: auth.currentUser?.uid,
+      userId: currentUid || auth.currentUser?.uid,
       email: auth.currentUser?.email,
       emailVerified: auth.currentUser?.emailVerified,
       isAnonymous: auth.currentUser?.isAnonymous,
@@ -91,11 +91,11 @@ export default function App() {
               setUserProfile(newUser);
               setLoading(false);
             } catch (error) {
-              handleFirestoreError(error, OperationType.CREATE, `users/${currentUser.uid}`);
+              handleFirestoreError(error, OperationType.CREATE, `users/${currentUser.uid}`, currentUser.uid);
             }
           }
         }, (error) => {
-          handleFirestoreError(error, OperationType.GET, `users/${currentUser.uid}`);
+          handleFirestoreError(error, OperationType.GET, `users/${currentUser.uid}`, currentUser.uid);
           setLoading(false);
         });
 

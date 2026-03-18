@@ -64,11 +64,7 @@ service cloud.firestore {
 
     function isAdmin() {
       return isAuthenticated() &&
-        (
-          (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin') ||
-          (request.auth.token.email == "eitan2007@gmail.com" && request.auth.token.email_verified == true)
-        );
+        (request.auth.token.email == "eitan2007@gmail.com" && request.auth.token.email_verified == true);
     }
 
     // Domain Validators
@@ -121,7 +117,7 @@ service cloud.firestore {
     // ===============================================================
 
     match /users/{userId} {
-      allow read: if isOwner(userId) || isAdmin();
+      allow read: if request.auth != null && (request.auth.uid == userId || isAdmin());
       
       // Allow user to create their own profile. Default to 'free' plan and 3 credits.
       allow create: if isOwner(userId) && 
