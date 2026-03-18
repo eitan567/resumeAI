@@ -461,7 +461,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile }) => {
       {/* Document Modal */}
       {selectedDoc && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className={`bg-white rounded-3xl shadow-2xl ${isEditing ? 'max-w-7xl' : 'max-w-5xl'} w-full max-h-[90vh] flex flex-col transition-all duration-300`}>
+          <div className="bg-white rounded-3xl shadow-2xl max-w-7xl w-full max-h-[90vh] flex flex-col transition-all duration-300">
             <div className="p-4 sm:p-6 border-b border-slate-100 flex justify-between items-center">
               <h3 className="text-lg font-bold text-slate-900">
                 {selectedDoc.type === 'resume' ? 'קורות חיים' : 'מכתב מקדים'}
@@ -588,7 +588,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile }) => {
                     ref={modalContentRef}
                     className={`prose max-w-none text-right bg-white p-8 sm:p-16 shadow-xl rounded-sm mx-auto ${getTemplateStyles(selectedDoc.template)}`} 
                     dir="rtl"
-                    style={{ maxWidth: '800px' }}
+                    style={{ maxWidth: '1000px' }}
                   >
                     <ReactMarkdown>{selectedDoc.content}</ReactMarkdown>
                   </div>
