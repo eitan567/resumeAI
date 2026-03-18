@@ -1,0 +1,78 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "A user of the application",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "The user's unique ID" },
+        "email": { "type": "string", "format": "email", "description": "The user's email address" },
+        "name": { "type": "string", "description": "The user's display name" },
+        "plan": { "type": "string", "enum": ["free", "pro"], "description": "The user's subscription plan" },
+        "credits": { "type": "number", "description": "Number of remaining generations for free users" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" }
+      },
+      "required": ["uid", "email", "name", "plan", "credits", "createdAt"]
+    },
+    "Document": {
+      "title": "Document",
+      "description": "A generated resume or cover letter",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "The document's unique ID" },
+        "userId": { "type": "string", "description": "The ID of the user who owns this document" },
+        "type": { "type": "string", "enum": ["resume", "cover_letter"], "description": "The type of document" },
+        "content": { "type": "string", "description": "The generated markdown content" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" }
+      },
+      "required": ["id", "userId", "type", "content", "createdAt"]
+    },
+    "SupportRequest": {
+      "title": "SupportRequest",
+      "description": "A support request or chat transcript",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique ID" },
+        "userId": { "type": "string", "description": "User ID (optional if guest)" },
+        "email": { "type": "string", "format": "email", "description": "Contact email" },
+        "name": { "type": "string", "description": "Contact name" },
+        "messages": { "type": "array", "items": { "type": "object" }, "description": "Chat transcript" },
+        "status": { "type": "string", "enum": ["open", "closed"], "description": "Request status" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" }
+      },
+      "required": ["id", "email", "name", "messages", "status", "createdAt"]
+    },
+    "ContactMessage": {
+      "title": "ContactMessage",
+      "description": "A message from the contact form",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique ID" },
+        "name": { "type": "string", "description": "Sender name" },
+        "email": { "type": "string", "format": "email", "description": "Sender email" },
+        "subject": { "type": "string", "description": "Message subject" },
+        "message": { "type": "string", "description": "Message content" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" }
+      },
+      "required": ["id", "name", "email", "subject", "message", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "Stores user profiles and subscription status"
+    },
+    "/documents/{documentId}": {
+      "schema": { "$ref": "#/entities/Document" },
+      "description": "Stores generated documents"
+    },
+    "/support_requests/{requestId}": {
+      "schema": { "$ref": "#/entities/SupportRequest" },
+      "description": "Stores support chat requests"
+    },
+    "/contact_messages/{messageId}": {
+      "schema": { "$ref": "#/entities/ContactMessage" },
+      "description": "Stores contact form submissions"
+    }
+  }
+}
