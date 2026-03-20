@@ -16,7 +16,6 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ userProfile })
     .replace(/[^a-z0-9-]/g, '');
 
   const [username, setUsername] = useState(userProfile.username || defaultSlug);
-  const [newPhotoUrl, setNewPhotoUrl] = useState('');
   const [isSavingUsername, setIsSavingUsername] = useState(false);
   const [isAddingPhoto, setIsAddingPhoto] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
@@ -72,41 +71,82 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ userProfile })
     }
   };
 
-  const handleAddPhoto = async (url?: string) => {
-    const photoToAdd = url || newPhotoUrl;
-    if (!photoToAdd) return;
-    setIsAddingPhoto(true);
-    setMessage(null);
-    try {
-      await updateDoc(doc(db, 'users', userProfile.uid), {
-        photos: arrayUnion(photoToAdd)
-      });
-      setNewPhotoUrl('');
-      setMessage({ type: 'success', text: 'התמונה נוספה בהצלחה!' });
-    } catch (err) {
-      console.error(err);
-      setMessage({ type: 'error', text: 'אירעה שגיאה בהוספת התמונה.' });
-    } finally {
-      setIsAddingPhoto(false);
-    }
+  const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target?.result as string;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 800;
+          const MAX_HEIGHT = 800;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height *= MAX_WIDTH / width;
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width *= MAX_HEIGHT / height;
+              height = MAX_HEIGHT;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            reject(new Error('Could not get canvas context'));
+            return;
+          }
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          // Compress as JPEG with 0.7 quality
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+          resolve(dataUrl);
+        };
+        img.onerror = (error) => reject(error);
+      };
+      reader.onerror = (error) => reject(error);
+    });
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Check file size (limit to 1MB for base64 storage)
-    if (file.size > 1024 * 1024) {
-      setMessage({ type: 'error', text: 'הקובץ גדול מדי. הגודל המקסימלי הוא 1MB.' });
+    // Limit to 5MB before compression
+    if (file.size > 5 * 1024 * 1024) {
+      setMessage({ type: 'error', text: 'הקובץ גדול מדי. הגודל המקסימלי הוא 5MB.' });
       return;
     }
 
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const base64String = reader.result as string;
-      handleAddPhoto(base64String);
-    };
-    reader.readAsDataURL(file);
+    setIsAddingPhoto(true);
+    setMessage(null);
+
+    try {
+      const compressedBase64 = await compressImage(file);
+      
+      // Update Firestore
+      await updateDoc(doc(db, 'users', userProfile.uid), {
+        photos: arrayUnion(compressedBase64)
+      });
+      setMessage({ type: 'success', text: 'התמונה נוספה בהצלחה!' });
+    } catch (err) {
+      console.error('Error adding photo:', err);
+      setMessage({ type: 'error', text: 'אירעה שגיאה בהוספת התמונה.' });
+    } finally {
+      setIsAddingPhoto(false);
+      // Reset input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
   };
 
   const handleRemovePhoto = async (photoUrl: string) => {
@@ -225,29 +265,11 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ userProfile })
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={isAddingPhoto}
-              className="flex-1 px-4 py-3 rounded-xl border-2 border-dashed border-slate-200 hover:border-indigo-500 hover:bg-indigo-50 transition-all text-slate-500 flex items-center justify-center gap-2"
+              className="w-full px-4 py-6 rounded-xl border-2 border-dashed border-slate-200 hover:border-indigo-500 hover:bg-indigo-50 transition-all text-slate-500 flex items-center justify-center gap-2"
             >
-              <ImageIcon className="w-5 h-5" />
+              {isAddingPhoto ? <Loader2 className="w-5 h-5 animate-spin" /> : <ImageIcon className="w-5 h-5" />}
               לחץ כאן להעלאת תמונה מהמחשב
             </button>
-            
-            <div className="flex gap-2 flex-1">
-              <input
-                type="url"
-                value={newPhotoUrl}
-                onChange={(e) => setNewPhotoUrl(e.target.value)}
-                placeholder="או הכנס לינק לתמונה (URL)"
-                className="flex-1 px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none"
-              />
-              <button
-                onClick={() => handleAddPhoto()}
-                disabled={isAddingPhoto || !newPhotoUrl}
-                className="bg-slate-900 hover:bg-slate-800 disabled:bg-slate-400 text-white px-6 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2"
-              >
-                {isAddingPhoto ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                הוסף
-              </button>
-            </div>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">

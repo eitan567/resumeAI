@@ -3,9 +3,8 @@ import { useParams, Link } from 'react-router-dom';
 import { db } from '../firebase';
 import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
 import { GeneratedDocument, UserProfile } from '../types';
-import { ResumeTemplate } from './ResumeTemplate';
 import ReactMarkdown from 'react-markdown';
-import { Loader2, FileText, Download, Share2, ExternalLink, User, Mail, Calendar, MessageSquare, Sparkles } from 'lucide-react';
+import { Loader2, FileText, Download, Share2, ExternalLink, User, Mail, Calendar, MessageSquare, Sparkles, X } from 'lucide-react';
 
 export const PublicProfile: React.FC = () => {
   const { username } = useParams<{ username: string }>();
@@ -109,9 +108,9 @@ export const PublicProfile: React.FC = () => {
       <div className="h-48 sm:h-64 bg-gradient-to-r from-indigo-600 to-violet-700 relative">
         <div className="absolute -bottom-16 left-0 right-0 max-w-5xl mx-auto px-4 flex flex-col sm:flex-row items-center sm:items-end gap-6">
           <div className="w-32 h-32 sm:w-40 sm:h-40 bg-white rounded-full p-1 shadow-2xl relative z-10 ring-8 ring-white/20">
-            {latestResume?.photoUrl ? (
+            {user.photos?.[0] || latestResume?.photoUrl ? (
               <img 
-                src={latestResume.photoUrl} 
+                src={user.photos?.[0] || latestResume?.photoUrl} 
                 alt={user.name} 
                 className="w-full h-full object-cover rounded-full"
                 referrerPolicy="no-referrer"
@@ -123,8 +122,8 @@ export const PublicProfile: React.FC = () => {
             )}
           </div>
           <div className="flex-1 text-center sm:text-right pb-2">
-            <h1 className="text-3xl sm:text-4xl font-black text-white drop-shadow-md mb-1">{user.name}</h1>
-            <p className="text-indigo-100 font-medium flex items-center justify-center sm:justify-start gap-2">
+            <h1 className="text-3xl sm:text-4xl font-black text-slate-900 drop-shadow-sm mb-1">{user.name}</h1>
+            <p className="text-slate-600 font-medium flex items-center justify-center sm:justify-start gap-2">
               <Mail className="w-4 h-4" />
               {user.email}
             </p>
@@ -133,7 +132,7 @@ export const PublicProfile: React.FC = () => {
             {latestCoverLetter && (
               <button 
                 onClick={() => setShowCoverLetter(true)}
-                className="bg-white/10 hover:bg-white/20 backdrop-blur-md text-white px-4 py-2 rounded-xl text-sm font-bold border border-white/20 transition-all flex items-center gap-2"
+                className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-md transition-all flex items-center gap-2"
               >
                 <MessageSquare className="w-4 h-4" />
                 מכתב מקדים
@@ -145,69 +144,59 @@ export const PublicProfile: React.FC = () => {
 
       {/* Main Content */}
       <div className="max-w-5xl mx-auto px-4 pt-24 sm:pt-20 grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Sidebar Info */}
-        <div className="space-y-6">
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-            <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-indigo-600" />
-              אודות
-            </h3>
-            <div className="space-y-4 text-slate-600 text-sm">
-              <div className="flex items-center gap-3">
-                <Calendar className="w-4 h-4 text-slate-400" />
-                <span>הצטרף ב-{new Date(user.createdAt).toLocaleDateString('he-IL')}</span>
+        {/* Sidebar (Hire Me) */}
+        <div className="lg:col-span-1 order-2 lg:order-1">
+          <div className="sticky top-8">
+            <div className="bg-indigo-600 rounded-3xl shadow-lg shadow-indigo-200 p-8 text-white text-center">
+              <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                <Sparkles className="w-8 h-8 text-indigo-100" />
               </div>
-              <div className="flex items-center gap-3">
-                <FileText className="w-4 h-4 text-slate-400" />
-                <span>{latestResume ? 'קורות חיים מעודכנים' : 'אין קורות חיים זמינים'}</span>
-              </div>
+              <h3 className="text-2xl font-bold mb-3">מעוניין להעסיק אותי?</h3>
+              <p className="text-indigo-100 mb-8 leading-relaxed">
+                אשמח לשמוע על הזדמנויות חדשות. ניתן ליצור איתי קשר ישירות במייל או להוריד את קורות החיים שלי.
+              </p>
+              <a 
+                href={`mailto:${user.email}`}
+                className="w-full bg-white text-indigo-600 py-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-indigo-50 transition-all hover:scale-105 active:scale-95 shadow-md"
+              >
+                <Mail className="w-5 h-5" />
+                שלח לי מייל
+              </a>
             </div>
-          </div>
-
-          <div className="bg-indigo-600 rounded-2xl shadow-lg shadow-indigo-200 p-6 text-white">
-            <h3 className="text-lg font-bold mb-2">מעוניין להעסיק אותי?</h3>
-            <p className="text-indigo-100 text-sm mb-6">ניתן ליצור איתי קשר ישירות במייל או להוריד את קורות החיים שלי.</p>
-            <a 
-              href={`mailto:${user.email}`}
-              className="w-full bg-white text-indigo-600 py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-indigo-50 transition-colors mb-3"
-            >
-              <Mail className="w-5 h-5" />
-              שלח לי מייל
-            </a>
           </div>
         </div>
 
         {/* Resume Display */}
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-2 order-1 lg:order-2">
           {latestResume ? (
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-              <div className="p-4 border-bottom border-slate-100 bg-slate-50 flex items-center justify-between">
-                <span className="text-sm font-bold text-slate-500">תצוגת קורות חיים</span>
+            <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden p-8 sm:p-12">
+              {/* Meta info */}
+              <div className="flex flex-wrap items-center gap-4 text-sm text-slate-500 mb-8 pb-6 border-b border-slate-100">
                 <div className="flex items-center gap-2">
-                  <button 
-                    onClick={() => window.print()}
-                    className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"
-                    title="הדפסה"
-                  >
-                    <Download className="w-5 h-5" />
-                  </button>
+                  <Calendar className="w-4 h-4" />
+                  <span>הצטרף ב-{new Date(user.createdAt).toLocaleDateString('he-IL')}</span>
                 </div>
+                <div className="flex items-center gap-2">
+                  <FileText className="w-4 h-4" />
+                  <span>עודכן לאחרונה: {new Date(latestResume.createdAt).toLocaleDateString('he-IL')}</span>
+                </div>
+                <button 
+                  onClick={() => window.print()}
+                  className="mr-auto flex items-center gap-2 text-indigo-600 hover:text-indigo-700 font-medium transition-colors"
+                  title="הדפסה"
+                >
+                  <Download className="w-4 h-4" />
+                  הדפס קורות חיים
+                </button>
               </div>
-              <div className="overflow-hidden">
-                <ResumeTemplate
-                  content={latestResume.content}
-                  template={latestResume.template || 'modern'}
-                  name={user.name}
-                  jobTitle={latestResume.jobTitle}
-                  email={user.email}
-                  photoUrl={latestResume.photoUrl}
-                  personalLink={window.location.href}
-                  includePersonalLink={true}
-                />
+
+              {/* Resume Content rendered as Markdown */}
+              <div className="prose prose-slate prose-indigo max-w-none prose-headings:font-bold prose-h1:text-3xl prose-h2:text-2xl prose-h3:text-xl prose-a:text-indigo-600 hover:prose-a:text-indigo-700 prose-img:rounded-xl prose-hr:border-slate-100">
+                <ReactMarkdown>{latestResume.content}</ReactMarkdown>
               </div>
             </div>
           ) : (
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-12 text-center">
+            <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-12 text-center">
               <FileText className="w-16 h-16 text-slate-200 mx-auto mb-4" />
               <p className="text-slate-500 font-medium">המשתמש טרם פרסם קורות חיים.</p>
             </div>
@@ -256,6 +245,4 @@ export const PublicProfile: React.FC = () => {
   );
 };
 
-const X = ({ className }: { className?: string }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-);
+
