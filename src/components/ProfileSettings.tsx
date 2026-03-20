@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { UserProfile } from '../types';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { doc, updateDoc, arrayUnion, arrayRemove, query, collection, where, getDocs, limit } from 'firebase/firestore';
-import { User, Mail, Link as LinkIcon, Image as ImageIcon, Plus, Trash2, Loader2, Check, ExternalLink, Share2 } from 'lucide-react';
+import { User, Mail, Link as LinkIcon, Image as ImageIcon, Plus, Trash2, Loader2, Check, ExternalLink, Share2, FileText, Save } from 'lucide-react';
 
 interface ProfileSettingsProps {
   userProfile: UserProfile;
@@ -17,6 +17,15 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ userProfile })
 
   const [username, setUsername] = useState(userProfile.username || defaultSlug);
   const [isSavingUsername, setIsSavingUsername] = useState(false);
+  
+  const [firstName, setFirstName] = useState(userProfile.firstName || '');
+  const [lastName, setLastName] = useState(userProfile.lastName || '');
+  const [location, setLocation] = useState(userProfile.location || '');
+  const [phone, setPhone] = useState(userProfile.phone || '');
+  const [linkedin, setLinkedin] = useState(userProfile.linkedin || '');
+  const [portfolio, setPortfolio] = useState(userProfile.portfolio || '');
+  const [isSavingDetails, setIsSavingDetails] = useState(false);
+
   const [isAddingPhoto, setIsAddingPhoto] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -68,6 +77,37 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ userProfile })
       setMessage({ type: 'error', text: 'אירעה שגיאה בעדכון שם המשתמש. נסה שוב מאוחר יותר.' });
     } finally {
       setIsSavingUsername(false);
+    }
+  };
+
+  const handleSaveDetails = async () => {
+    if (!firstName.trim() || !lastName.trim() || !location.trim() || !phone.trim()) {
+      setMessage({ type: 'error', text: 'יש למלא את כל שדות החובה (שם פרטי, שם משפחה, אזור מגורים, טלפון).' });
+      return;
+    }
+
+    setIsSavingDetails(true);
+    setMessage(null);
+    try {
+      await updateDoc(doc(db, 'users', userProfile.uid), {
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        location: location.trim(),
+        phone: phone.trim(),
+        linkedin: linkedin.trim(),
+        portfolio: portfolio.trim()
+      });
+      setMessage({ type: 'success', text: 'פרטי הפרופיל עודכנו בהצלחה!' });
+    } catch (err) {
+      console.error(err);
+      try {
+        handleFirestoreError(err, OperationType.UPDATE, `users/${userProfile.uid}`);
+      } catch (e) {
+        // Error already logged
+      }
+      setMessage({ type: 'error', text: 'אירעה שגיאה בעדכון פרטי הפרופיל.' });
+    } finally {
+      setIsSavingDetails(false);
     }
   };
 
@@ -229,20 +269,108 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ userProfile })
           {/* User Info */}
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-bold text-slate-700 mb-2">שם מלא</label>
+              <label className="block text-sm font-bold text-slate-700 mb-2">שם מלא (מגוגל)</label>
               <div className="px-4 py-3 bg-slate-50 rounded-xl border border-slate-200 text-slate-600 flex items-center gap-3">
                 <User className="w-4 h-4" />
                 {userProfile.name}
               </div>
             </div>
             <div>
-              <label className="block text-sm font-bold text-slate-700 mb-2">אימייל</label>
+              <label className="block text-sm font-bold text-slate-700 mb-2">אימייל (מגוגל)</label>
               <div className="px-4 py-3 bg-slate-50 rounded-xl border border-slate-200 text-slate-600 flex items-center gap-3">
                 <Mail className="w-4 h-4" />
                 {userProfile.email}
               </div>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Personal Details for Resume */}
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 sm:p-8">
+        <h2 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2">
+          <FileText className="w-6 h-6 text-indigo-600" />
+          פרטים לקורות חיים ומכתב מקדים
+        </h2>
+        <p className="text-sm text-slate-500 mb-6">
+          הפרטים כאן ישמשו את הבינה המלאכותית באופן אוטומטי בעת יצירת קורות חיים ומכתב מקדים.
+        </p>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label className="block text-sm font-bold text-slate-700 mb-2">שם פרטי <span className="text-red-500">*</span></label>
+            <input
+              type="text"
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
+              placeholder="לדוגמה: ישראל"
+              className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-slate-700 mb-2">שם משפחה <span className="text-red-500">*</span></label>
+            <input
+              type="text"
+              value={lastName}
+              onChange={(e) => setLastName(e.target.value)}
+              placeholder="לדוגמה: ישראלי"
+              className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-slate-700 mb-2">אזור / עיר מגורים <span className="text-red-500">*</span></label>
+            <input
+              type="text"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              placeholder="לדוגמה: תל אביב והמרכז"
+              className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-slate-700 mb-2">טלפון <span className="text-red-500">*</span></label>
+            <input
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="לדוגמה: 050-1234567"
+              className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none text-right"
+              dir="ltr"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-slate-700 mb-2">קישור ל-LinkedIn (רשות)</label>
+            <input
+              type="url"
+              value={linkedin}
+              onChange={(e) => setLinkedin(e.target.value)}
+              placeholder="https://linkedin.com/in/..."
+              className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none text-left"
+              dir="ltr"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-slate-700 mb-2">קישור ל-GitHub / תיק עבודות (רשות)</label>
+            <input
+              type="url"
+              value={portfolio}
+              onChange={(e) => setPortfolio(e.target.value)}
+              placeholder="https://github.com/..."
+              className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none text-left"
+              dir="ltr"
+            />
+          </div>
+        </div>
+
+        <div className="mt-8 flex justify-end">
+          <button
+            onClick={handleSaveDetails}
+            disabled={isSavingDetails}
+            className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 text-white px-8 py-3 rounded-xl font-bold transition-all flex items-center gap-2"
+          >
+            {isSavingDetails ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+            שמור פרטים
+          </button>
         </div>
       </div>
 

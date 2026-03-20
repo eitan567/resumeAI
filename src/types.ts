@@ -2,6 +2,12 @@ export interface UserProfile {
   uid: string;
   email: string;
   name: string;
+  firstName?: string;
+  lastName?: string;
+  location?: string;
+  phone?: string;
+  linkedin?: string;
+  portfolio?: string;
   plan: 'free' | 'pro';
   credits: number;
   createdAt: string;

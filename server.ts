@@ -3,45 +3,26 @@ import { createServer as createViteServer } from "vite";
 import path from "path";
 import cron from "node-cron";
 import nodemailer from "nodemailer";
-import { initializeApp, applicationDefault, getApps } from "firebase-admin/app";
-import { getFirestore } from "firebase-admin/firestore";
 import fs from "fs";
 import { initializeApp as initializeClientApp } from "firebase/app";
-import { getFirestore as getClientFirestore, collection, query, where, getDocs, doc, updateDoc } from "firebase/firestore";
+import { getFirestore as getClientFirestore, collection, query, where, getDocs, doc, updateDoc, limit } from "firebase/firestore";
 
 async function startServer() {
   fs.writeFileSync("startup-test.log", "STARTING SERVER\n");
   const app = express();
   const PORT = 3000;
 
-  // Initialize Firebase Admin
-  let db: FirebaseFirestore.Firestore;
   let clientDb: any;
 
-  // Initialize Firebase Admin with a named app to ensure correct project/database
   const configPath = path.join(process.cwd(), "firebase-applet-config.json");
   const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
   
-  const appName = "admin-app";
-  let adminApp;
-  if (getApps().find(a => a.name === appName)) {
-    adminApp = getApps().find(a => a.name === appName)!;
-  } else {
-    adminApp = initializeApp({
-      credential: applicationDefault(),
-      projectId: config.projectId,
-    }, appName);
-  }
-
   // Use the database ID from config, fallback to default if it fails
   const databaseId = config.firestoreDatabaseId && config.firestoreDatabaseId !== "(default)" 
     ? config.firestoreDatabaseId 
     : undefined;
   
-  db = getFirestore(adminApp, databaseId);
-  console.log(`Firebase Admin initialized for project: ${config.projectId}, database: ${databaseId || "(default)"} using app: ${appName}`);
-
-  // Initialize Client SDK as fallback
+  // Initialize Client SDK
   const clientApp = initializeClientApp(config);
   clientDb = getClientFirestore(clientApp, databaseId);
   console.log(`Firebase Client SDK initialized for database: ${databaseId || "(default)"}`);
@@ -55,18 +36,6 @@ async function startServer() {
   } catch (err: any) {
     console.error(`Firebase Client SDK connection failed:`, err.message);
     fs.appendFileSync("startup-test.log", `CLIENT FAILED: ${err.message} on ${databaseId || "(default)"}\n`);
-  }
-
-  // Verify Admin SDK update permission
-  try {
-    const testDoc = db.collection("users").doc("test-connection-" + Date.now());
-    await testDoc.set({ test: true, createdAt: new Date().toISOString() });
-    console.log("Admin SDK update permission verified.");
-    fs.appendFileSync("startup-test.log", `ADMIN UPDATE SUCCESS on ${databaseId || "(default)"}\n`);
-    await testDoc.delete();
-  } catch (err: any) {
-    console.error(`Admin SDK update permission failed:`, err.message);
-    fs.appendFileSync("startup-test.log", `ADMIN UPDATE FAILED: ${err.message} on ${databaseId || "(default)"}\n`);
   }
 
   // Configure Nodemailer
@@ -102,8 +71,8 @@ async function startServer() {
   // Setup Cron Job to run daily at midnight (or every minute for testing)
   // We'll run it every hour in this example, but check for expirations within 3 days.
   cron.schedule("0 * * * *", async () => {
-    if (!db) {
-      console.log("Cron job skipped: Firebase Admin not initialized.");
+    if (!clientDb) {
+      console.log("Cron job skipped: Firebase Client SDK not initialized.");
       return;
     }
 
@@ -113,38 +82,26 @@ async function startServer() {
       const threeDaysFromNow = new Date();
       threeDaysFromNow.setDate(now.getDate() + 3);
 
-      // Try Admin SDK first, fallback to Client SDK if it fails with PERMISSION_DENIED
+      // Use Client SDK for query since Admin SDK fails with PERMISSION_DENIED in this environment
       let docs: any[] = [];
       try {
-        const usersRef = db.collection("users");
-        const snapshot = await usersRef
-          .where("plan", "==", "pro")
-          .where("reminderSent", "==", false)
-          .where("proExpiresAt", "<=", threeDaysFromNow.toISOString())
-          .get();
-        console.log(`Admin SDK query successful: Found ${snapshot.size} users.`);
-        docs = snapshot.docs;
-      } catch (adminErr: any) {
-        if (adminErr.message.includes("PERMISSION_DENIED") || adminErr.message.includes("Missing or insufficient permissions")) {
-          console.log("Admin SDK query failed with PERMISSION_DENIED. Falling back to Client SDK for query...");
-          const q = query(
-            collection(clientDb, "users"),
-            where("plan", "==", "pro"),
-            where("reminderSent", "==", false),
-            where("proExpiresAt", "<=", threeDaysFromNow.toISOString())
-          );
-          const clientSnap = await getDocs(q);
-          console.log(`Client SDK query successful: Found ${clientSnap.docs.length} users.`);
-          
-          // Use Admin SDK for the document references to ensure we can update them
-          docs = clientSnap.docs.map(d => ({
-            id: d.id,
-            data: () => d.data(),
-            ref: db.collection("users").doc(d.id)
-          }));
-        } else {
-          throw adminErr;
-        }
+        const q = query(
+          collection(clientDb, "users"),
+          where("plan", "==", "pro"),
+          where("reminderSent", "==", false),
+          where("proExpiresAt", "<=", threeDaysFromNow.toISOString())
+        );
+        const clientSnap = await getDocs(q);
+        console.log(`Client SDK query successful: Found ${clientSnap.docs.length} users.`);
+        
+        docs = clientSnap.docs.map(d => ({
+          id: d.id,
+          data: () => d.data(),
+          ref: doc(clientDb, "users", d.id)
+        }));
+      } catch (err: any) {
+        console.error("Client SDK query failed:", err);
+        throw err;
       }
 
       if (docs.length === 0) {
@@ -169,7 +126,7 @@ async function startServer() {
           console.log(`Preview URL: ${nodemailer.getTestMessageUrl(info)}`);
 
           // Update reminderSent to true
-          await doc.ref.update({ reminderSent: true });
+          await updateDoc(doc.ref, { reminderSent: true });
         } catch (emailErr) {
           console.error(`Failed to send email to ${user.email}:`, emailErr);
         }
@@ -186,8 +143,8 @@ async function startServer() {
 
   // Manual trigger for testing the cron job
   app.post("/api/cron/trigger-reminders", async (req, res) => {
-    if (!db) {
-      res.status(500).json({ error: "Firebase Admin not initialized" });
+    if (!clientDb) {
+      res.status(500).json({ error: "Firebase Client SDK not initialized" });
       return;
     }
 
@@ -196,37 +153,26 @@ async function startServer() {
       const threeDaysFromNow = new Date();
       threeDaysFromNow.setDate(now.getDate() + 3);
 
-      // Try Admin SDK first, fallback to Client SDK if it fails with PERMISSION_DENIED
+      // Use Client SDK for query since Admin SDK fails with PERMISSION_DENIED in this environment
       let docs: any[] = [];
       try {
-        const usersRef = db.collection("users");
-        const snapshot = await usersRef
-          .where("plan", "==", "pro")
-          .where("reminderSent", "==", false)
-          .where("proExpiresAt", "<=", threeDaysFromNow.toISOString())
-          .get();
-        console.log(`Admin SDK query successful: Found ${snapshot.size} users.`);
-        docs = snapshot.docs;
-      } catch (adminErr: any) {
-        if (adminErr.message.includes("PERMISSION_DENIED") || adminErr.message.includes("Missing or insufficient permissions")) {
-          console.log("Admin SDK query failed with PERMISSION_DENIED. Falling back to Client SDK for query...");
-          const q = query(
-            collection(clientDb, "users"),
-            where("plan", "==", "pro"),
-            where("reminderSent", "==", false),
-            where("proExpiresAt", "<=", threeDaysFromNow.toISOString())
-          );
-          const clientSnap = await getDocs(q);
-          console.log(`Client SDK query successful: Found ${clientSnap.docs.length} users.`);
-          
-          docs = clientSnap.docs.map(d => ({
-            id: d.id,
-            data: () => d.data(),
-            ref: db.collection("users").doc(d.id)
-          }));
-        } else {
-          throw adminErr;
-        }
+        const q = query(
+          collection(clientDb, "users"),
+          where("plan", "==", "pro"),
+          where("reminderSent", "==", false),
+          where("proExpiresAt", "<=", threeDaysFromNow.toISOString())
+        );
+        const clientSnap = await getDocs(q);
+        console.log(`Client SDK query successful: Found ${clientSnap.docs.length} users.`);
+        
+        docs = clientSnap.docs.map(d => ({
+          id: d.id,
+          data: () => d.data(),
+          ref: doc(clientDb, "users", d.id)
+        }));
+      } catch (err: any) {
+        console.error("Client SDK query failed:", err);
+        throw err;
       }
 
       const sentTo = [];
@@ -244,7 +190,7 @@ async function startServer() {
 
           console.log(`Preview URL: ${nodemailer.getTestMessageUrl(info)}`);
 
-          await doc.ref.update({ reminderSent: true });
+          await updateDoc(doc.ref, { reminderSent: true });
           sentTo.push(user.email);
         } catch (emailErr) {
           console.error(`Failed to send email to ${user.email}:`, emailErr);
@@ -290,7 +236,7 @@ async function startServer() {
   // Debug endpoint to trigger cron job logic
   app.get("/api/debug/cron", async (req, res) => {
     console.log("Manual trigger of expiration check...");
-    if (!db) {
+    if (!clientDb) {
       return res.status(500).json({ error: "Firestore not initialized" });
     }
 
@@ -301,22 +247,23 @@ async function startServer() {
 
       console.log(`Checking for expirations before: ${threeDaysFromNow.toISOString()}`);
 
-      const usersRef = db.collection("users");
-      
       // Try a simple get first to check permissions
       try {
-        const testSnap = await usersRef.limit(1).get();
-        console.log(`Simple get successful, found ${testSnap.size} docs`);
+        const qTest = query(collection(clientDb, "users"), limit(1));
+        const testSnap = await getDocs(qTest);
+        console.log(`Simple get successful, found ${testSnap.docs.length} docs`);
       } catch (err: any) {
         console.error("Simple get failed in debug endpoint:", err.message);
         return res.status(403).json({ error: "Permission denied on simple get", details: err.message });
       }
 
-      const snapshot = await usersRef
-        .where("plan", "==", "pro")
-        .where("reminderSent", "==", false)
-        .where("proExpiresAt", "<=", threeDaysFromNow.toISOString())
-        .get();
+      const q = query(
+        collection(clientDb, "users"),
+        where("plan", "==", "pro"),
+        where("reminderSent", "==", false),
+        where("proExpiresAt", "<=", threeDaysFromNow.toISOString())
+      );
+      const snapshot = await getDocs(q);
 
       const results = [];
       for (const doc of snapshot.docs) {
@@ -325,7 +272,7 @@ async function startServer() {
 
       res.json({ 
         message: "Check completed", 
-        found: snapshot.size,
+        found: snapshot.docs.length,
         results 
       });
     } catch (error: any) {

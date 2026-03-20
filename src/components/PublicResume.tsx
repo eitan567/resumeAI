@@ -1,14 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { db } from '../firebase';
-import { collection, query, where, getDocs, limit } from 'firebase/firestore';
-import { GeneratedDocument } from '../types';
+import { collection, query, where, getDocs, limit, doc as firestoreDoc, getDoc } from 'firebase/firestore';
+import { GeneratedDocument, UserProfile } from '../types';
+import { getUserDisplayName } from '../utils/user';
 import { ResumeTemplate } from './ResumeTemplate';
 import { Loader2, AlertCircle, Download, Share2, Sparkles } from 'lucide-react';
 
 export const PublicResume: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
   const [doc, setDoc] = useState<GeneratedDocument | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -26,7 +28,17 @@ export const PublicResume: React.FC = () => {
         
         const querySnapshot = await getDocs(q);
         if (!querySnapshot.empty) {
-          setDoc(querySnapshot.docs[0].data() as GeneratedDocument);
+          const documentData = querySnapshot.docs[0].data() as GeneratedDocument;
+          setDoc(documentData);
+          
+          // Fetch user profile to get the latest name
+          if (documentData.userId) {
+            const userRef = firestoreDoc(db, 'users', documentData.userId);
+            const userSnap = await getDoc(userRef);
+            if (userSnap.exists()) {
+              setUserProfile(userSnap.data() as UserProfile);
+            }
+          }
         } else {
           setError('המסמך לא נמצא או שאינו ציבורי.');
         }
@@ -52,22 +64,63 @@ export const PublicResume: React.FC = () => {
     }
   };
 
-  const cleanMarkdownContent = (text: string) => {
+  const cleanMarkdownContent = (text: string, docObj?: any) => {
     if (!text) return '';
     
-    // Find the first heading which almost always marks the start of the resume
-    const firstHeadingIndex = text.search(/^#+\s/m);
+    let cleaned = text;
+
+    // 1. Fill known data
+    if (docObj) {
+      const nameToUse = userProfile ? getUserDisplayName(userProfile) : (docObj.userName || '');
+      cleaned = cleaned.replace(/\[שם מלא\]/gi, nameToUse);
+      cleaned = cleaned.replace(/\[Full Name\]/gi, nameToUse);
+      cleaned = cleaned.replace(/\[אימייל\]/gi, docObj.userEmail || '');
+      cleaned = cleaned.replace(/\[Email\]/gi, docObj.userEmail || '');
+    }
+
+    // 2. Remove remaining placeholders like [טלפון], [מקום מגורים], etc.
+    cleaned = cleaned.replace(/(?:📞|📱|📍|🏠|🔗|💻|🌐|✉️|📧)?\s*\[([^\]]+)\](?!\()/g, (match, innerText) => {
+      const lower = innerText.toLowerCase();
+      const isPlaceholder = lower.includes('טלפון') || 
+                            lower.includes('phone') || 
+                            lower.includes('מקום') || 
+                            lower.includes('location') || 
+                            lower.includes('address') || 
+                            lower.includes('link') || 
+                            lower.includes('linkedin') || 
+                            lower.includes('github') || 
+                            lower.includes('portfolio') ||
+                            lower.includes('email') ||
+                            lower.includes('אימייל') ||
+                            lower.includes('שם מלא') ||
+                            lower.includes('city') ||
+                            lower.includes('country');
+      
+      if (isPlaceholder) {
+        return '';
+      }
+      return match;
+    });
+
+    // 3. Clean up dangling separators
+    cleaned = cleaned.replace(/(\s*\|\s*)+/g, ' | ');
+    cleaned = cleaned.replace(/^[ \t|]+\|[ \t]*/gm, ''); // leading |
+    cleaned = cleaned.replace(/[ \t]*\|[ \t|]+$/gm, ''); // trailing |
+    cleaned = cleaned.replace(/^[ \t|]+$/gm, ''); // empty lines with just |
+    
+    // 4. Find the first heading which almost always marks the start of the resume
+    const firstHeadingIndex = cleaned.search(/^#+\s/m);
     
     if (firstHeadingIndex > 0) {
-      const introText = text.substring(0, firstHeadingIndex);
+      const introText = cleaned.substring(0, firstHeadingIndex);
       // If the text before the heading is relatively short, it's likely AI chatter
       if (introText.length < 800) {
-        return text.substring(firstHeadingIndex);
+        cleaned = cleaned.substring(firstHeadingIndex);
       }
     }
     
-    // Fallback: remove specific known AI phrases if no heading was found
-    const lines = text.split('\n');
+    // 5. Fallback: remove specific known AI phrases if no heading was found
+    const lines = cleaned.split('\n');
     const filteredLines = lines.filter(line => {
       const l = line.trim();
       if (l.startsWith('להלן גרסה') || 
@@ -110,7 +163,7 @@ export const PublicResume: React.FC = () => {
     );
   }
 
-  const body = cleanMarkdownContent(doc.content);
+  const body = cleanMarkdownContent(doc.content, doc);
 
   return (
     <div className="min-h-screen bg-slate-50 py-12 px-4 sm:px-6 lg:px-8" dir="rtl">
@@ -147,7 +200,7 @@ export const PublicResume: React.FC = () => {
           <ResumeTemplate
             content={body}
             template={doc.template || 'modern'}
-            name={doc.userName || 'משתמש'}
+            name={userProfile ? getUserDisplayName(userProfile) : (doc.userName || 'משתמש')}
             jobTitle={doc.jobTitle}
             email={doc.userEmail || ''}
             photoUrl={doc.photoUrl}

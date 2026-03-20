@@ -15,7 +15,13 @@
         "reminderSent": { "type": "boolean", "description": "Whether a renewal reminder has been sent" },
         "role": { "type": "string", "enum": ["admin", "user"], "description": "User role" },
         "username": { "type": "string", "description": "Unique username for personal profile link" },
-        "photos": { "type": "array", "items": { "type": "string" }, "description": "List of profile photo URLs" }
+        "photos": { "type": "array", "items": { "type": "string" }, "description": "List of profile photo URLs" },
+        "firstName": { "type": "string", "description": "User's first name" },
+        "lastName": { "type": "string", "description": "User's last name" },
+        "location": { "type": "string", "description": "User's location" },
+        "phone": { "type": "string", "description": "User's phone number" },
+        "linkedin": { "type": "string", "description": "User's LinkedIn profile URL" },
+        "portfolio": { "type": "string", "description": "User's portfolio or GitHub URL" }
       },
       "required": ["uid", "email", "name", "plan", "credits", "createdAt"]
     },

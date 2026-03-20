@@ -8,7 +8,8 @@ export const generateResume = async (
   experience: string,
   education: string,
   template: string = 'modern',
-  personalLink?: string
+  personalLink?: string,
+  userProfile?: any
 ): Promise<string> => {
   let templateInstructions = '';
   if (template === 'modern') {
@@ -25,6 +26,16 @@ export const generateResume = async (
     Skills: ${skills}
     Experience: ${experience}
     Education: ${education}
+    
+    USER PROFILE DETAILS (USE THESE EXACTLY AS PROVIDED TO FILL IN THE RESUME HEADER/CONTACT INFO):
+    First Name: ${userProfile?.firstName || ''}
+    Last Name: ${userProfile?.lastName || ''}
+    Full Name: ${userProfile?.firstName && userProfile?.lastName ? `${userProfile.firstName} ${userProfile.lastName}` : userProfile?.name || ''}
+    Email: ${userProfile?.email || ''}
+    Phone: ${userProfile?.phone || ''}
+    Location: ${userProfile?.location || ''}
+    LinkedIn: ${userProfile?.linkedin || ''}
+    GitHub/Portfolio: ${userProfile?.portfolio || ''}
     ${personalLink ? `Personal Profile Link: ${personalLink}` : ''}
     
     Format the output in clear Markdown. 
@@ -33,7 +44,7 @@ export const generateResume = async (
     2. Include an "Experience" (ניסיון תעסוקתי) section with clear dates, company names, and bullet points for achievements.
     3. Include an "Education" (השכלה) section.
     4. Include a "Skills" (כישורים ומיומנויות) section.
-    5. ${personalLink ? `IMPORTANT: Include the Personal Profile Link (${personalLink}) prominently at the very top under the name/title or in a dedicated "Contact Information" (פרטי התקשרות) section.` : ''}
+    5. Include a "Contact Information" (פרטי התקשרות) section at the top, using the USER PROFILE DETAILS provided above. If a field is empty, do not include it. ${personalLink ? `Also include the Personal Profile Link (${personalLink}).` : ''}
     6. Use professional Hebrew terminology suitable for the Israeli high-tech and corporate sectors.
     7. Do not include a "Name" header in the markdown, as it will be added by the UI.
     
@@ -54,7 +65,8 @@ export const generateCoverLetter = async (
   companyName: string,
   skills: string,
   experience: string,
-  template: string = 'formal'
+  template: string = 'formal',
+  userProfile?: any
 ): Promise<string> => {
   let templateInstructions = '';
   if (template === 'formal') {
@@ -71,7 +83,18 @@ export const generateCoverLetter = async (
     Skills: ${skills}
     Experience: ${experience}
     
+    USER PROFILE DETAILS (USE THESE EXACTLY AS PROVIDED TO FILL IN THE SENDER INFO):
+    First Name: ${userProfile?.firstName || ''}
+    Last Name: ${userProfile?.lastName || ''}
+    Full Name: ${userProfile?.firstName && userProfile?.lastName ? `${userProfile.firstName} ${userProfile.lastName}` : userProfile?.name || ''}
+    Email: ${userProfile?.email || ''}
+    Phone: ${userProfile?.phone || ''}
+    Location: ${userProfile?.location || ''}
+    LinkedIn: ${userProfile?.linkedin || ''}
+    GitHub/Portfolio: ${userProfile?.portfolio || ''}
+    
     Format the output in clear Markdown. Make it persuasive and tailored for the Israeli job market.
+    Include the sender's contact information at the top or bottom of the letter using the provided USER PROFILE DETAILS.
     
     TONE AND STYLE INSTRUCTIONS:
     ${templateInstructions}

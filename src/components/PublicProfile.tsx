@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { db } from '../firebase';
 import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
 import { GeneratedDocument, UserProfile } from '../types';
+import { getUserDisplayName } from '../utils/user';
 import ReactMarkdown from 'react-markdown';
 import { Loader2, FileText, Download, Share2, ExternalLink, User, Mail, Calendar, MessageSquare, Sparkles, X } from 'lucide-react';
 
@@ -74,22 +75,69 @@ export const PublicProfile: React.FC = () => {
     fetchProfile();
   }, [username]);
 
-  const cleanMarkdownContent = (text: string) => {
+  const cleanMarkdownContent = (text: string, userObj?: any) => {
     if (!text) return '';
     
-    // Find the first heading which almost always marks the start of the resume
-    const firstHeadingIndex = text.search(/^#+\s/m);
+    let cleaned = text;
+
+    // 1. Fill known data
+    if (userObj) {
+      const fullName = getUserDisplayName(userObj);
+      cleaned = cleaned.replace(/\[שם מלא\]/gi, fullName);
+      cleaned = cleaned.replace(/\[Full Name\]/gi, fullName);
+      cleaned = cleaned.replace(/\[אימייל\]/gi, userObj.email || '');
+      cleaned = cleaned.replace(/\[Email\]/gi, userObj.email || '');
+      cleaned = cleaned.replace(/\[טלפון\]/gi, userObj.phone || '');
+      cleaned = cleaned.replace(/\[Phone\]/gi, userObj.phone || '');
+      cleaned = cleaned.replace(/\[מקום מגורים\]/gi, userObj.location || '');
+      cleaned = cleaned.replace(/\[Location\]/gi, userObj.location || '');
+      cleaned = cleaned.replace(/\[Link to LinkedIn\]/gi, userObj.linkedin || '');
+      cleaned = cleaned.replace(/\[Link to GitHub\/Portfolio\]/gi, userObj.portfolio || '');
+    }
+
+    // 2. Remove remaining placeholders like [טלפון], [מקום מגורים], etc.
+    cleaned = cleaned.replace(/(?:📞|📱|📍|🏠|🔗|💻|🌐|✉️|📧)?\s*\[([^\]]+)\](?!\()/g, (match, innerText) => {
+      const lower = innerText.toLowerCase();
+      const isPlaceholder = lower.includes('טלפון') || 
+                            lower.includes('phone') || 
+                            lower.includes('מקום') || 
+                            lower.includes('location') || 
+                            lower.includes('address') || 
+                            lower.includes('link') || 
+                            lower.includes('linkedin') || 
+                            lower.includes('github') || 
+                            lower.includes('portfolio') ||
+                            lower.includes('email') ||
+                            lower.includes('אימייל') ||
+                            lower.includes('שם מלא') ||
+                            lower.includes('city') ||
+                            lower.includes('country');
+      
+      if (isPlaceholder) {
+        return '';
+      }
+      return match;
+    });
+
+    // 3. Clean up dangling separators
+    cleaned = cleaned.replace(/(\s*\|\s*)+/g, ' | ');
+    cleaned = cleaned.replace(/^[ \t|]+\|[ \t]*/gm, ''); // leading |
+    cleaned = cleaned.replace(/[ \t]*\|[ \t|]+$/gm, ''); // trailing |
+    cleaned = cleaned.replace(/^[ \t|]+$/gm, ''); // empty lines with just |
+    
+    // 4. Find the first heading which almost always marks the start of the resume
+    const firstHeadingIndex = cleaned.search(/^#+\s/m);
     
     if (firstHeadingIndex > 0) {
-      const introText = text.substring(0, firstHeadingIndex);
+      const introText = cleaned.substring(0, firstHeadingIndex);
       // If the text before the heading is relatively short, it's likely AI chatter
       if (introText.length < 800) {
-        return text.substring(firstHeadingIndex);
+        cleaned = cleaned.substring(firstHeadingIndex);
       }
     }
     
-    // Fallback: remove specific known AI phrases if no heading was found
-    const lines = text.split('\n');
+    // 5. Fallback: remove specific known AI phrases if no heading was found
+    const lines = cleaned.split('\n');
     const filteredLines = lines.filter(line => {
       const l = line.trim();
       if (l.startsWith('להלן גרסה') || 
@@ -142,7 +190,7 @@ export const PublicProfile: React.FC = () => {
           <div className="hidden sm:block w-40 shrink-0"></div>
           
           <div className="flex-1 text-center sm:text-right">
-            <h1 className="text-3xl sm:text-4xl font-black text-white drop-shadow-md mb-2">{user.name}</h1>
+            <h1 className="text-3xl sm:text-4xl font-black text-white drop-shadow-md mb-2">{getUserDisplayName(user)}</h1>
             <p className="text-indigo-100 font-medium flex items-center justify-center sm:justify-start gap-2">
               <Mail className="w-4 h-4" />
               {user.email}
@@ -168,7 +216,7 @@ export const PublicProfile: React.FC = () => {
             {user.photos?.[0] || latestResume?.photoUrl ? (
               <img 
                 src={user.photos?.[0] || latestResume?.photoUrl} 
-                alt={user.name} 
+                alt={getUserDisplayName(user)} 
                 className="w-full h-full object-cover rounded-full"
                 referrerPolicy="no-referrer"
               />
@@ -209,7 +257,7 @@ export const PublicProfile: React.FC = () => {
 
               {/* Resume Content rendered as Markdown */}
               <div className="prose prose-slate prose-indigo max-w-none prose-headings:font-bold prose-h1:text-3xl prose-h2:text-2xl prose-h3:text-xl prose-a:text-indigo-600 hover:prose-a:text-indigo-700 prose-img:rounded-xl prose-hr:border-slate-100">
-                <ReactMarkdown>{cleanMarkdownContent(latestResume.content)}</ReactMarkdown>
+                <ReactMarkdown>{cleanMarkdownContent(latestResume.content, user)}</ReactMarkdown>
               </div>
             </div>
           ) : (
@@ -260,7 +308,7 @@ export const PublicProfile: React.FC = () => {
               </button>
             </div>
             <div className="flex-1 overflow-y-auto p-8 sm:p-12 prose prose-slate max-w-none text-right" dir="rtl">
-              <ReactMarkdown>{cleanMarkdownContent(latestCoverLetter.content)}</ReactMarkdown>
+              <ReactMarkdown>{cleanMarkdownContent(latestCoverLetter.content, user)}</ReactMarkdown>
             </div>
             <div className="p-6 border-t border-slate-100 bg-slate-50 flex justify-end">
               <button 

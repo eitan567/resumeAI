@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { generateResume, generateCoverLetter } from '../services/ai';
 import { UserProfile } from '../types';
+import { getUserDisplayName } from '../utils/user';
 import { auth, db } from '../firebase';
 import { doc, setDoc, updateDoc, increment } from 'firebase/firestore';
 import { Loader2, FileText, Send, Download, Sparkles, Wand2, ArrowRight, ArrowLeft, Check, AlertCircle, MessageSquare, User, Save } from 'lucide-react';
@@ -257,7 +258,7 @@ export const Generator: React.FC<GeneratorProps> = ({ userProfile, onShowPricing
               ` : ''}
               
               <div class="header">
-                <h1 class="name">${userProfile.name}</h1>
+                <h1 class="name">${getUserDisplayName(userProfile)}</h1>
                 <div class="title">${jobTitle}</div>
               </div>
               
@@ -280,7 +281,7 @@ export const Generator: React.FC<GeneratorProps> = ({ userProfile, onShowPricing
                       <img src="${photoUrl}" class="photo" referrerPolicy="no-referrer" />
                     </div>
                   ` : ''}
-                  <h1 class="name">${userProfile.name}</h1>
+                  <h1 class="name">${getUserDisplayName(userProfile)}</h1>
                   <div class="title">${jobTitle}</div>
                   <div class="contact-info" style="display: flex; justify-content: center; gap: 20px; flex-wrap: wrap;">
                     <span>📧 ${userProfile.email}</span>
@@ -322,6 +323,84 @@ export const Generator: React.FC<GeneratorProps> = ({ userProfile, onShowPricing
     }
   };
 
+  const cleanMarkdownContent = (text: string, userObj?: any) => {
+    if (!text) return '';
+    
+    let cleaned = text;
+
+    // 1. Fill known data
+    if (userObj) {
+      const fullName = getUserDisplayName(userObj);
+      cleaned = cleaned.replace(/\[שם מלא\]/gi, fullName);
+      cleaned = cleaned.replace(/\[Full Name\]/gi, fullName);
+      cleaned = cleaned.replace(/\[אימייל\]/gi, userObj.email || '');
+      cleaned = cleaned.replace(/\[Email\]/gi, userObj.email || '');
+      cleaned = cleaned.replace(/\[טלפון\]/gi, userObj.phone || '');
+      cleaned = cleaned.replace(/\[Phone\]/gi, userObj.phone || '');
+      cleaned = cleaned.replace(/\[מקום מגורים\]/gi, userObj.location || '');
+      cleaned = cleaned.replace(/\[Location\]/gi, userObj.location || '');
+      cleaned = cleaned.replace(/\[Link to LinkedIn\]/gi, userObj.linkedin || '');
+      cleaned = cleaned.replace(/\[Link to GitHub\/Portfolio\]/gi, userObj.portfolio || '');
+    }
+
+    // 2. Remove remaining placeholders like [טלפון], [מקום מגורים], etc.
+    cleaned = cleaned.replace(/(?:📞|📱|📍|🏠|🔗|💻|🌐|✉️|📧)?\s*\[([^\]]+)\](?!\()/g, (match, innerText) => {
+      const lower = innerText.toLowerCase();
+      const isPlaceholder = lower.includes('טלפון') || 
+                            lower.includes('phone') || 
+                            lower.includes('מקום') || 
+                            lower.includes('location') || 
+                            lower.includes('address') || 
+                            lower.includes('link') || 
+                            lower.includes('linkedin') || 
+                            lower.includes('github') || 
+                            lower.includes('portfolio') ||
+                            lower.includes('email') ||
+                            lower.includes('אימייל') ||
+                            lower.includes('שם מלא') ||
+                            lower.includes('city') ||
+                            lower.includes('country');
+      
+      if (isPlaceholder) {
+        return '';
+      }
+      return match;
+    });
+
+    // 3. Clean up dangling separators
+    cleaned = cleaned.replace(/(\s*\|\s*)+/g, ' | ');
+    cleaned = cleaned.replace(/^[ \t|]+\|[ \t]*/gm, ''); // leading |
+    cleaned = cleaned.replace(/[ \t]*\|[ \t|]+$/gm, ''); // trailing |
+    cleaned = cleaned.replace(/^[ \t|]+$/gm, ''); // empty lines with just |
+    
+    // 4. Find the first heading which almost always marks the start of the resume
+    const firstHeadingIndex = cleaned.search(/^#+\s/m);
+    
+    if (firstHeadingIndex > 0) {
+      const introText = cleaned.substring(0, firstHeadingIndex);
+      // If the text before the heading is relatively short, it's likely AI chatter
+      if (introText.length < 800) {
+        cleaned = cleaned.substring(firstHeadingIndex);
+      }
+    }
+    
+    // 5. Fallback: remove specific known AI phrases if no heading was found
+    const lines = cleaned.split('\n');
+    const filteredLines = lines.filter(line => {
+      const l = line.trim();
+      if (l.startsWith('להלן גרסה') || 
+          l.startsWith('המבנה עוצב') || 
+          l.startsWith('הנה קורות') ||
+          l.includes('Executive Markdown') ||
+          l.includes('להלן קורות החיים')) {
+        return false;
+      }
+      return true;
+    });
+    
+    return filteredLines.join('\n').trim();
+  };
+
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -338,15 +417,18 @@ export const Generator: React.FC<GeneratorProps> = ({ userProfile, onShowPricing
       let content = '';
       if (type === 'resume') {
         const personalLink = includePersonalLink && userProfile.username ? `${window.location.origin}/u/${userProfile.username}` : undefined;
-        content = await generateResume(jobTitle, skills, experience, education, template, personalLink);
+        content = await generateResume(jobTitle, skills, experience, education, template, personalLink, userProfile);
       } else {
         if (userProfile.plan === 'free') {
           setLoading(false);
           onShowPricing();
           return;
         }
-        content = await generateCoverLetter(jobTitle, companyName, skills, experience, coverLetterTemplate);
+        content = await generateCoverLetter(jobTitle, companyName, skills, experience, coverLetterTemplate, userProfile);
       }
+
+      // Clean the content before saving
+      content = cleanMarkdownContent(content, userProfile);
 
       // Save to Firestore
       const docId = Date.now().toString();
@@ -355,7 +437,7 @@ export const Generator: React.FC<GeneratorProps> = ({ userProfile, onShowPricing
           await setDoc(doc(db, 'documents', docId), {
             id: docId,
             userId: userProfile.uid,
-            userName: userProfile.name,
+            userName: getUserDisplayName(userProfile),
             userEmail: userProfile.email,
             type,
             content,
@@ -748,7 +830,7 @@ export const Generator: React.FC<GeneratorProps> = ({ userProfile, onShowPricing
                     <ResumeTemplate
                       content={editedContent}
                       template={template}
-                      name={userProfile.name}
+                      name={getUserDisplayName(userProfile)}
                       jobTitle={jobTitle}
                       email={userProfile.email}
                       photoUrl={photoUrl}
@@ -768,7 +850,7 @@ export const Generator: React.FC<GeneratorProps> = ({ userProfile, onShowPricing
                 <ResumeTemplate
                   content={result}
                   template={template}
-                  name={userProfile.name}
+                  name={getUserDisplayName(userProfile)}
                   jobTitle={jobTitle}
                   email={userProfile.email}
                   photoUrl={photoUrl}

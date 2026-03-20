@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { UserProfile, GeneratedDocument } from '../types';
+import { getUserDisplayName } from '../utils/user';
 import { auth, db, logout } from '../firebase';
 import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, increment } from 'firebase/firestore';
 import { Generator } from './Generator';
@@ -331,7 +332,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile }) => {
           },
           body: JSON.stringify({
             email: userProfile.email,
-            name: userProfile.name,
+            name: getUserDisplayName(userProfile),
             expiresAt: userProfile.proExpiresAt
           })
         }).then(res => {
@@ -385,7 +386,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile }) => {
           
           <div className="flex items-center gap-3 sm:gap-4">
             <div className="hidden sm:flex items-center gap-2 text-sm">
-              <span className="text-slate-600 truncate max-w-[120px]">שלום, {userProfile.name}</span>
+              <span className="text-slate-600 truncate max-w-[120px]">שלום, {getUserDisplayName(userProfile)}</span>
               <span className={`px-2 py-1 rounded-full text-[10px] font-bold ${userProfile.plan === 'pro' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>
                 {userProfile.plan === 'pro' ? 'PRO' : 'FREE'}
               </span>
@@ -434,7 +435,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile }) => {
         {isMobileMenuOpen && (
           <div className="sm:hidden bg-white border-t border-slate-100 px-4 py-4 space-y-4">
             <div className="flex items-center justify-between">
-              <span className="text-slate-600 font-medium">שלום, {userProfile.name}</span>
+              <span className="text-slate-600 font-medium">שלום, {getUserDisplayName(userProfile)}</span>
               <span className={`px-2 py-1 rounded-full text-xs font-bold ${userProfile.plan === 'pro' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>
                 {userProfile.plan === 'pro' ? 'PRO' : 'FREE'}
               </span>
@@ -780,7 +781,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile }) => {
                         <ResumeTemplate
                           content={editedContent}
                           template={selectedDoc.template || 'modern'}
-                          name={userProfile.name}
+                          name={getUserDisplayName(userProfile)}
                           jobTitle={selectedDoc.jobTitle}
                           email={userProfile.email}
                           photoUrl={selectedDoc.photoUrl}
@@ -800,7 +801,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ userProfile }) => {
                     <ResumeTemplate
                       content={parseContent(selectedDoc.content).body}
                       template={selectedDoc.template || 'modern'}
-                      name={userProfile.name}
+                      name={getUserDisplayName(userProfile)}
                       jobTitle={selectedDoc.jobTitle}
                       email={userProfile.email}
                       photoUrl={selectedDoc.photoUrl}
