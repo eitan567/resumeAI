@@ -136,7 +136,7 @@ export const PublicProfile: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-50 pb-20" dir="rtl">
       {/* Header / Cover */}
-      <div className="bg-gradient-to-r from-indigo-600 to-violet-700 relative mb-24 pt-16 sm:pt-24 pb-16 sm:pb-8">
+      <div className="sticky top-0 z-40 bg-gradient-to-r from-indigo-600 to-violet-700 pt-8 sm:pt-12 pb-8 sm:pb-8 shadow-md">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center sm:items-end gap-6 relative z-10">
           {/* Spacer for avatar on desktop */}
           <div className="hidden sm:block w-40 shrink-0"></div>
@@ -182,29 +182,7 @@ export const PublicProfile: React.FC = () => {
       </div>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 flex flex-col lg:flex-row gap-8 items-start">
-        {/* Sidebar (Hire Me) */}
-        <div className="w-full lg:w-80 shrink-0">
-          <div className="sticky top-8">
-            <div className="bg-indigo-600 rounded-3xl shadow-lg shadow-indigo-200 p-8 text-white text-center">
-              <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                <Sparkles className="w-8 h-8 text-indigo-100" />
-              </div>
-              <h3 className="text-2xl font-bold mb-3">מעוניין להעסיק אותי?</h3>
-              <p className="text-indigo-100 mb-8 leading-relaxed">
-                אשמח לשמוע על הזדמנויות חדשות. ניתן ליצור איתי קשר ישירות במייל או להוריד את קורות החיים שלי.
-              </p>
-              <a 
-                href={`mailto:${user.email}`}
-                className="w-full bg-white text-indigo-600 py-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-indigo-50 transition-all hover:scale-105 active:scale-95 shadow-md"
-              >
-                <Mail className="w-5 h-5" />
-                שלח לי מייל
-              </a>
-            </div>
-          </div>
-        </div>
-
+      <div className="max-w-7xl mx-auto px-4 pt-24 flex flex-col lg:flex-row gap-8 items-start">
         {/* Resume Display */}
         <div className="flex-1 w-full max-w-4xl mx-auto">
           {latestResume ? (
@@ -240,6 +218,28 @@ export const PublicProfile: React.FC = () => {
               <p className="text-slate-500 font-medium">המשתמש טרם פרסם קורות חיים.</p>
             </div>
           )}
+        </div>
+
+        {/* Sidebar (Hire Me) */}
+        <div className="w-full lg:w-80 shrink-0">
+          <div className="sticky top-32">
+            <div className="bg-indigo-600 rounded-3xl shadow-lg shadow-indigo-200 p-8 text-white text-center">
+              <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                <Sparkles className="w-8 h-8 text-indigo-100" />
+              </div>
+              <h3 className="text-2xl font-bold mb-3">מעוניין להעסיק אותי?</h3>
+              <p className="text-indigo-100 mb-8 leading-relaxed">
+                אשמח לשמוע על הזדמנויות חדשות. ניתן ליצור איתי קשר ישירות במייל או להוריד את קורות החיים שלי.
+              </p>
+              <a 
+                href={`mailto:${user.email}`}
+                className="w-full bg-white text-indigo-600 py-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-indigo-50 transition-all hover:scale-105 active:scale-95 shadow-md"
+              >
+                <Mail className="w-5 h-5" />
+                שלח לי מייל
+              </a>
+            </div>
+          </div>
         </div>
       </div>
 
