@@ -74,6 +74,37 @@ export const PublicProfile: React.FC = () => {
     fetchProfile();
   }, [username]);
 
+  const cleanMarkdownContent = (text: string) => {
+    if (!text) return '';
+    
+    // Find the first heading which almost always marks the start of the resume
+    const firstHeadingIndex = text.search(/^#+\s/m);
+    
+    if (firstHeadingIndex > 0) {
+      const introText = text.substring(0, firstHeadingIndex);
+      // If the text before the heading is relatively short, it's likely AI chatter
+      if (introText.length < 800) {
+        return text.substring(firstHeadingIndex);
+      }
+    }
+    
+    // Fallback: remove specific known AI phrases if no heading was found
+    const lines = text.split('\n');
+    const filteredLines = lines.filter(line => {
+      const l = line.trim();
+      if (l.startsWith('להלן גרסה') || 
+          l.startsWith('המבנה עוצב') || 
+          l.startsWith('הנה קורות') ||
+          l.includes('Executive Markdown') ||
+          l.includes('להלן קורות החיים')) {
+        return false;
+      }
+      return true;
+    });
+    
+    return filteredLines.join('\n').trim();
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
@@ -105,9 +136,35 @@ export const PublicProfile: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-50 pb-20" dir="rtl">
       {/* Header / Cover */}
-      <div className="h-48 sm:h-64 bg-gradient-to-r from-indigo-600 to-violet-700 relative">
-        <div className="absolute -bottom-16 left-0 right-0 max-w-5xl mx-auto px-4 flex flex-col sm:flex-row items-center sm:items-end gap-6">
-          <div className="w-32 h-32 sm:w-40 sm:h-40 bg-white rounded-full p-1 shadow-2xl relative z-10 ring-8 ring-white/20">
+      <div className="bg-gradient-to-r from-indigo-600 to-violet-700 relative mb-24 pt-16 sm:pt-24 pb-16 sm:pb-8">
+        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center sm:items-end gap-6 relative z-10">
+          {/* Spacer for avatar on desktop */}
+          <div className="hidden sm:block w-40 shrink-0"></div>
+          
+          <div className="flex-1 text-center sm:text-right">
+            <h1 className="text-3xl sm:text-4xl font-black text-white drop-shadow-md mb-2">{user.name}</h1>
+            <p className="text-indigo-100 font-medium flex items-center justify-center sm:justify-start gap-2">
+              <Mail className="w-4 h-4" />
+              {user.email}
+            </p>
+          </div>
+          
+          <div className="flex gap-2 mt-4 sm:mt-0">
+            {latestCoverLetter && (
+              <button 
+                onClick={() => setShowCoverLetter(true)}
+                className="bg-white/20 hover:bg-white/30 backdrop-blur-md text-white px-5 py-2.5 rounded-xl text-sm font-bold border border-white/20 transition-all flex items-center gap-2"
+              >
+                <MessageSquare className="w-4 h-4" />
+                מכתב מקדים
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Avatar */}
+        <div className="absolute -bottom-16 left-0 right-0 max-w-7xl mx-auto px-4 flex justify-center sm:justify-start pointer-events-none">
+          <div className="w-32 h-32 sm:w-40 sm:h-40 bg-white rounded-full p-1 shadow-2xl relative z-20 ring-8 ring-white/20 pointer-events-auto">
             {user.photos?.[0] || latestResume?.photoUrl ? (
               <img 
                 src={user.photos?.[0] || latestResume?.photoUrl} 
@@ -121,31 +178,13 @@ export const PublicProfile: React.FC = () => {
               </div>
             )}
           </div>
-          <div className="flex-1 text-center sm:text-right pb-2">
-            <h1 className="text-3xl sm:text-4xl font-black text-slate-900 drop-shadow-sm mb-1">{user.name}</h1>
-            <p className="text-slate-600 font-medium flex items-center justify-center sm:justify-start gap-2">
-              <Mail className="w-4 h-4" />
-              {user.email}
-            </p>
-          </div>
-          <div className="flex gap-2 pb-2">
-            {latestCoverLetter && (
-              <button 
-                onClick={() => setShowCoverLetter(true)}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-md transition-all flex items-center gap-2"
-              >
-                <MessageSquare className="w-4 h-4" />
-                מכתב מקדים
-              </button>
-            )}
-          </div>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="max-w-5xl mx-auto px-4 pt-24 sm:pt-20 grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="max-w-7xl mx-auto px-4 flex flex-col lg:flex-row gap-8 items-start">
         {/* Sidebar (Hire Me) */}
-        <div className="lg:col-span-1 order-2 lg:order-1">
+        <div className="w-full lg:w-80 shrink-0">
           <div className="sticky top-8">
             <div className="bg-indigo-600 rounded-3xl shadow-lg shadow-indigo-200 p-8 text-white text-center">
               <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center mx-auto mb-6">
@@ -167,7 +206,7 @@ export const PublicProfile: React.FC = () => {
         </div>
 
         {/* Resume Display */}
-        <div className="lg:col-span-2 order-1 lg:order-2">
+        <div className="flex-1 w-full max-w-4xl mx-auto">
           {latestResume ? (
             <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden p-8 sm:p-12">
               {/* Meta info */}
@@ -192,7 +231,7 @@ export const PublicProfile: React.FC = () => {
 
               {/* Resume Content rendered as Markdown */}
               <div className="prose prose-slate prose-indigo max-w-none prose-headings:font-bold prose-h1:text-3xl prose-h2:text-2xl prose-h3:text-xl prose-a:text-indigo-600 hover:prose-a:text-indigo-700 prose-img:rounded-xl prose-hr:border-slate-100">
-                <ReactMarkdown>{latestResume.content}</ReactMarkdown>
+                <ReactMarkdown>{cleanMarkdownContent(latestResume.content)}</ReactMarkdown>
               </div>
             </div>
           ) : (
@@ -221,7 +260,7 @@ export const PublicProfile: React.FC = () => {
               </button>
             </div>
             <div className="flex-1 overflow-y-auto p-8 sm:p-12 prose prose-slate max-w-none text-right" dir="rtl">
-              <ReactMarkdown>{latestCoverLetter.content}</ReactMarkdown>
+              <ReactMarkdown>{cleanMarkdownContent(latestCoverLetter.content)}</ReactMarkdown>
             </div>
             <div className="p-6 border-t border-slate-100 bg-slate-50 flex justify-end">
               <button 

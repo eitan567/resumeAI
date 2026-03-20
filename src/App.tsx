@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Auth } from './components/Auth';
 import { Dashboard } from './components/Dashboard';
 import { PublicResume } from './components/PublicResume';
@@ -10,6 +10,32 @@ import { doc, setDoc, onSnapshot } from 'firebase/firestore';
 import { UserProfile } from './types';
 import { Loader2 } from 'lucide-react';
 import { SupportChat } from './components/SupportChat';
+
+function AppContent({ user, userProfile }: { user: any, userProfile: UserProfile | null }) {
+  const location = useLocation();
+  const isPublicRoute = location.pathname.startsWith('/u/') || location.pathname.startsWith('/r/');
+
+  return (
+    <div className="min-h-screen flex flex-col bg-slate-50 font-sans text-slate-900" dir="rtl">
+      <Routes>
+        <Route 
+          path="/" 
+          element={
+            user && userProfile ? (
+              <Dashboard userProfile={userProfile} />
+            ) : (
+              <Auth />
+            )
+          } 
+        />
+        <Route path="/r/:slug" element={<PublicResume />} />
+        <Route path="/u/:username" element={<PublicProfile />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+      {!isPublicRoute && <SupportChat />}
+    </div>
+  );
+}
 
 export default function App() {
   const [user, setUser] = useState<any>(null);
@@ -97,24 +123,7 @@ export default function App() {
 
   return (
     <Router>
-      <div className="h-full bg-slate-50 font-sans text-slate-900" dir="rtl">
-        <Routes>
-          <Route 
-            path="/" 
-            element={
-              user && userProfile ? (
-                <Dashboard userProfile={userProfile} />
-              ) : (
-                <Auth />
-              )
-            } 
-          />
-          <Route path="/r/:slug" element={<PublicResume />} />
-          <Route path="/u/:username" element={<PublicProfile />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-        <SupportChat />
-      </div>
+      <AppContent user={user} userProfile={userProfile} />
     </Router>
   );
 }

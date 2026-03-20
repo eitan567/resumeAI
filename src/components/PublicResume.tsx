@@ -52,16 +52,35 @@ export const PublicResume: React.FC = () => {
     }
   };
 
-  const parseContent = (content: string) => {
-    const separator = '---\n';
-    const parts = content.split(separator);
-    if (parts.length > 1 && !parts[0].includes('#')) {
-      return {
-        intro: parts[0].trim(),
-        body: parts.slice(1).join(separator).trim()
-      };
+  const cleanMarkdownContent = (text: string) => {
+    if (!text) return '';
+    
+    // Find the first heading which almost always marks the start of the resume
+    const firstHeadingIndex = text.search(/^#+\s/m);
+    
+    if (firstHeadingIndex > 0) {
+      const introText = text.substring(0, firstHeadingIndex);
+      // If the text before the heading is relatively short, it's likely AI chatter
+      if (introText.length < 800) {
+        return text.substring(firstHeadingIndex);
+      }
     }
-    return { intro: null, body: content.trim() };
+    
+    // Fallback: remove specific known AI phrases if no heading was found
+    const lines = text.split('\n');
+    const filteredLines = lines.filter(line => {
+      const l = line.trim();
+      if (l.startsWith('להלן גרסה') || 
+          l.startsWith('המבנה עוצב') || 
+          l.startsWith('הנה קורות') ||
+          l.includes('Executive Markdown') ||
+          l.includes('להלן קורות החיים')) {
+        return false;
+      }
+      return true;
+    });
+    
+    return filteredLines.join('\n').trim();
   };
 
   if (loading) {
@@ -91,7 +110,7 @@ export const PublicResume: React.FC = () => {
     );
   }
 
-  const { body } = parseContent(doc.content);
+  const body = cleanMarkdownContent(doc.content);
 
   return (
     <div className="min-h-screen bg-slate-50 py-12 px-4 sm:px-6 lg:px-8" dir="rtl">
